@@ -1,0 +1,7 @@
+requests>=2.31
+PyYAML>=6.0
+faster-whisper>=1.0.3
+yt-dlp>=2024.10.22
+piper-tts>=1.2.0
+google-api-python-client>=2.140
+google-auth-oauthlib>=1.2

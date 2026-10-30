@@ -1,0 +1,75 @@
+# clipbot configuration — copy to config.yaml and edit.
+# All paths support ~ expansion.
+
+paths:
+  inbox: ~/clipbot/inbox          # drop your own long videos here
+  work: ~/clipbot/work            # downloads, transcripts, temp files, state.db
+  ready: ~/clipbot/ready          # finished clips land here (one folder per clip)
+  uploaded: ~/clipbot/uploaded    # clips are moved here after a successful upload
+
+# Channel identity — this is fed to the LLM so hooks/titles match your style.
+channel:
+  niche: "funny and surprising moments from tech and science talks"
+  voice: "punchy, curious, never clickbait-lying"
+  hashtags: ["#shorts"]
+
+ollama:
+  host: http://localhost:11434
+  # Good Pi 5 choices: llama3.2:3b (8GB Pi), qwen2.5:3b, or llama3.2:1b (4GB Pi)
+  model: llama3.2:3b
+  num_ctx: 8192
+  temperature: 0.4
+  timeout_s: 900                  # the Pi is slow; be patient
+
+sources:
+  local_inbox: true
+  # URLs (channels, playlists, single videos) fetched with yt-dlp.
+  # Only list content you own or that is Creative Commons licensed —
+  # re-uploading other people's videos will get copyright strikes.
+  urls: []
+  #  - url: https://www.youtube.com/@YourOwnChannel/videos
+  #    own: true                  # skips the Creative Commons check
+  #  - url: https://www.youtube.com/results?search_query=talk&sp=EgIwAQ%253D%253D
+  #    own: false                 # must be CC-licensed or it is skipped
+  max_downloads_per_run: 2
+  max_video_minutes: 60
+  max_height: 1080
+
+whisper:
+  model: base.en                  # tiny.en is ~2x faster, base.en is more accurate
+  compute_type: int8
+  threads: 4
+
+clips:
+  per_video: 2                    # how many clips to cut from each source
+  min_seconds: 15
+  max_seconds: 58                 # keep under 60 for Shorts
+  min_score: 6                    # LLM "virality" score 1-10; below this is dropped
+  vertical: true                  # 1080x1920 with blurred background fill
+
+text:
+  font: DejaVu Sans               # any fontconfig family name installed on the Pi
+  hook_size: 78                   # big text at top of the frame
+  caption_size: 64                # word-by-word captions near the bottom
+  burn_captions: true
+  words_per_caption: 3
+
+audio:
+  narration: true                 # Piper TTS reads the LLM's voiceover line
+  piper_model: ~/clipbot/voices/en_US-lessac-medium.onnx
+  narration_delay_s: 0.3
+  duck_original_to: 0.25          # original audio volume while narration plays
+  music_dir: ~/clipbot/music      # optional: royalty-free mp3/wav files you own
+  music_volume: 0.10
+
+schedule:
+  timezone: America/Chicago
+  publish_times: ["12:00", "18:00"]   # local times; one clip per slot
+  max_uploads_per_run: 2              # YouTube API quota ≈ 6 uploads/day by default
+
+youtube:
+  enabled: false                  # true = upload with scheduled publishAt
+  client_secrets: ~/clipbot/client_secret.json
+  token: ~/clipbot/token.json
+  category_id: "22"               # 22 = People & Blogs, 24 = Entertainment, 28 = Science & Tech
+  made_for_kids: false

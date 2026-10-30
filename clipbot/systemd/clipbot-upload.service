@@ -1,0 +1,10 @@
+[Unit]
+Description=clipbot: upload ready clips to YouTube with scheduled publish times
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+User=@USER@
+WorkingDirectory=@DIR@
+ExecStart=@DIR@/.venv/bin/python -m clipbot upload
