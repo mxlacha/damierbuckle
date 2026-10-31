@@ -9,6 +9,7 @@ Two levels, both read-only (nothing here can upload or change anything on YouTub
 from __future__ import annotations
 
 import json
+import os
 import logging
 import re
 import shutil
@@ -27,7 +28,7 @@ API = "https://www.googleapis.com/youtube/v3"
 ANALYTICS = "https://youtubeanalytics.googleapis.com/v2/reports"
 SCOPES = ["https://www.googleapis.com/auth/yt-analytics.readonly",
           "https://www.googleapis.com/auth/yt-analytics-monetary.readonly"]
-REPORTS = HERE / "reports"
+REPORTS = Path(os.environ.get("CLIPBOT_REPORTS", HERE / "reports"))  # tests point this elsewhere
 
 
 def _norm(title: str) -> str:
