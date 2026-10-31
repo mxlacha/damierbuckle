@@ -7,3 +7,4 @@ google-api-python-client>=2.140
 google-auth-oauthlib>=1.2
 kokoro-onnx>=0.4.9
 Pillow>=10.0
+anthropic>=2.3,<3

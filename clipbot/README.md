@@ -76,6 +76,10 @@ To enable performance tracking, create a Google Cloud **API key** with YouTube D
 
 Since July 2025, YouTube's "inauthentic content" policy explicitly targets *"channels that upload narrative stories with only superficial differences between them"* and *"slideshows that all have the same narration."* AI-assisted channels stay eligible when the videos add real value. The bot is built to do that: it rotates voices, caption styles and music, rejects repeated topics and premises, grounds facts in sources, and labels fiction as fiction. What helps most beyond that is your own input: record an intro in your own voice sometimes, pick topics you find interesting, and cut weak videos before uploading. Nothing here disguises automation or dodges Content ID; that is what gets channels terminated rather than just demonetized.
 
+### Faster, more reliable writing: the Claude API
+
+Writing scripts on the Pi takes minutes each and small models sometimes miss the format. Set `llm.provider: claude` in `config.yaml` (with your `sk-ant-...` key) to write with Claude Haiku 5.5 instead: seconds per script, and structured outputs guarantee the JSON is valid. At roughly 3-5K tokens per video and $0.10 / $0.50 per million input / output tokens, a channel posting 3 a day costs on the order of a few cents a month. If the API is unreachable, the bot falls back to Ollama on the Pi.
+
 ### Bigger writer model
 
 On an 8 GB Pi, `model: qwen2.5:7b` on a niche (`ollama pull qwen2.5:7b`) writes noticeably better hooks. It's about 2–3× slower, which is fine for an overnight run. With several channels, keep `llama3.2:3b` for `factcard` (short captions) and spend the time on `explainer` and `post`.

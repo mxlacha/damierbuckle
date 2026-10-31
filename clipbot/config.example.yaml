@@ -18,10 +18,15 @@ channel:
   voice: "punchy, curious, never clickbait-lying"
   hashtags: ["#shorts"]
 
-# Where scripts get written. "ollama" = on the Pi (free, slow: minutes per script).
-# "cloud" = a free-tier OpenAI-compatible API (seconds per script); falls back to Ollama if it fails.
+# Where scripts get written; anything but "ollama" falls back to Ollama if it fails.
+#   ollama — on the Pi (free, slow: minutes per script)
+#   claude — Claude API, Haiku 5.5 by default (seconds per script, guaranteed-valid JSON, ~$0.10/$0.50 per M tokens)
+#   cloud  — any OpenAI-compatible free tier (Gemini, Groq) using base_url/model below
 llm:
   provider: ollama
+  # provider: claude
+  # model: claude-haiku-5-5        # api_key: your sk-ant-... key (or set ANTHROPIC_API_KEY)
+  # effort: low
   # Google Gemini (free key: aistudio.google.com → Get API key)
   base_url: https://generativelanguage.googleapis.com/v1beta/openai/
   # tried in order; a busy or rate-limited model falls through to the next

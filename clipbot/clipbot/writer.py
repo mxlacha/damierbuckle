@@ -79,6 +79,17 @@ Do NOT resemble any of these already-used premises: {used}.
 Respond ONLY with JSON: {{"premises": ["<premise>", "..."]}}"""
 
 
+def _schema(properties: dict) -> dict:
+    """Strict JSON schema for structured outputs (every listed field required)."""
+    return {"type": "object", "properties": properties, "required": list(properties), "additionalProperties": False}
+
+
+STR, STRS = {"type": "string"}, {"type": "array", "items": {"type": "string"}}
+SCRIPT_SCHEMA = _schema({"title": STR, "hook_text": STR, "script": STR, "visuals": STRS, "description": STR, "tags": STRS})
+CAPTION_SCHEMA = _schema({"title": STR, "caption": STR, "description": STR, "tags": STRS})
+OK_SCHEMA = _schema({"ok": {"type": "boolean"}})
+
+
 def _model(niche: dict) -> str | None:
     return niche.get("model")
 
@@ -87,7 +98,8 @@ def ideas(cfg: dict, niche: dict, used: list[str], n: int = 8) -> list[str]:
     reddit = niche["format"] == "reddit"
     prompt = (PREMISES if reddit else IDEAS).format(n=n, angle=niche["angle"], used="; ".join(used[-60:]) or "none")
     try:
-        data = _chat(cfg, "You are a creative producer. Output JSON only.", prompt, _model(niche), temperature=0.9)
+        data = _chat(cfg, "You are a creative producer. Output JSON only.", prompt, _model(niche), temperature=0.9,
+                     schema=_schema({"premises" if reddit else "topics": STRS}))
     except (requests.RequestException, json.JSONDecodeError, KeyError) as exc:
         log.warning("idea generation failed: %s", exc)
         return []
@@ -133,7 +145,7 @@ def _validate(data: dict, words_min: int, words_max: int) -> tuple[dict | None, 
 def post_ok(cfg: dict, niche: dict, text: str) -> bool:
     try:
         data = _chat(cfg, "You are a careful content reviewer. Output JSON only.",
-                     POST_FILTER.format(angle=niche.get("angle", ""), text=text), _model(niche), temperature=0)
+                     POST_FILTER.format(angle=niche.get("angle", ""), text=text), _model(niche), temperature=0, schema=OK_SCHEMA)
     except (requests.RequestException, json.JSONDecodeError, KeyError):
         return False
     return isinstance(data, dict) and data.get("ok") is True
@@ -152,7 +164,7 @@ def factcard(cfg: dict, niche: dict, material: str) -> dict | None:
     user = f"SOURCE:\n{material}"
     for attempt in range(2):
         try:
-            data = _chat(cfg, system, user, _model(niche), temperature=0.5)
+            data = _chat(cfg, system, user, _model(niche), temperature=0.5, schema=CAPTION_SCHEMA)
         except (requests.RequestException, json.JSONDecodeError, KeyError) as exc:
             log.warning("caption attempt %d failed: %s", attempt + 1, exc)
             continue
@@ -183,7 +195,8 @@ def script(cfg: dict, niche: dict, fmt: str, material: str) -> dict | None:
     user = f"{label}:\n{material}"
     for attempt in range(2):
         try:
-            data = _chat(cfg, system, user, _model(niche), temperature=0.8 if fmt == "reddit" else 0.5)
+            data = _chat(cfg, system, user, _model(niche), temperature=0.8 if fmt == "reddit" else 0.5,
+                         schema=SCRIPT_SCHEMA)
         except (requests.RequestException, json.JSONDecodeError, KeyError) as exc:
             log.warning("script attempt %d failed: %s", attempt + 1, exc)
             continue

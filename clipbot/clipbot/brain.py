@@ -67,9 +67,45 @@ def _cloud(cfg: dict, system: str, user: str, temperature: float) -> dict:
     raise error
 
 
-def _chat(cfg: dict, system: str, user: str, model: str | None = None, temperature: float | None = None) -> dict:
+_claude_client = None
+
+
+def _claude(cfg: dict, system: str, user: str, schema: dict | None) -> dict:
+    """Claude API via the official SDK. With a schema, structured outputs guarantee valid JSON of that shape."""
+    global _claude_client
+    import anthropic
+
+    llm = cfg["llm"]
+    if _claude_client is None:
+        # api_key from config, else the SDK's own lookup (ANTHROPIC_API_KEY / `ant auth login` profile)
+        _claude_client = anthropic.Anthropic(api_key=llm.get("api_key") or None, max_retries=3)
+    output_config: dict = {"effort": llm.get("effort", "low")}
+    if schema:
+        output_config["format"] = {"type": "json_schema", "schema": schema}
+    response = _claude_client.messages.create(
+        model=llm.get("model") or "claude-haiku-5-5",
+        max_tokens=16000,
+        system=system,
+        messages=[{"role": "user", "content": user}],
+        output_config=output_config,
+    )
+    if response.stop_reason == "refusal":
+        raise ValueError(f"Claude declined: {getattr(response.stop_details, 'category', None)}")
+    text = next(b.text for b in response.content if b.type == "text")
+    return _parse_json(text)
+
+
+def _chat(cfg: dict, system: str, user: str, model: str | None = None, temperature: float | None = None,
+          schema: dict | None = None) -> dict:
     o = cfg["ollama"]
     llm = cfg.get("llm") or {}
+    if llm.get("provider") == "claude":
+        import anthropic
+
+        try:
+            return _claude(cfg, system, user, schema)
+        except (anthropic.APIError, ValueError, StopIteration) as exc:
+            log.warning("Claude API failed (%s); falling back to Ollama on the Pi", str(exc)[:400])
     if llm.get("provider") == "cloud" and llm.get("api_key"):
         try:
             return _cloud(cfg, system, user, o["temperature"] if temperature is None else temperature)
