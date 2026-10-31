@@ -7,7 +7,18 @@ import difflib
 import re
 from pathlib import Path
 
-from .transcribe import _get_model
+_align_model = None
+
+
+def _get_align_model(cfg: dict):
+    global _align_model
+    if _align_model is None:
+        from faster_whisper import WhisperModel
+
+        w = cfg["whisper"]
+        _align_model = WhisperModel(w.get("align_model", "tiny.en"), device="cpu", compute_type=w["compute_type"],
+                                    cpu_threads=min(int(w["threads"]), int(cfg.get("max_threads", 4))))
+    return _align_model
 
 
 def _norm(word: str) -> str:
@@ -15,7 +26,7 @@ def _norm(word: str) -> str:
 
 
 def align(cfg: dict, wav: Path, script_words: list[str], duration: float) -> list[dict]:
-    segments, _ = _get_model(cfg).transcribe(str(wav), word_timestamps=True, beam_size=1)
+    segments, _ = _get_align_model(cfg).transcribe(str(wav), word_timestamps=True, beam_size=1, language="en")
     heard = [w for seg in segments for w in (seg.words or [])]
     return map_timings(script_words, [(w.word, w.start, w.end) for w in heard], duration)
 

@@ -21,6 +21,9 @@ W, H, FPS = 1080, 1920, 30
 ENC = ["-c:v", "libx264", "-preset", "veryfast", "-crf", "22", "-pix_fmt", "yuv420p"]
 
 
+FAST = ["-c:v", "libx264", "-preset", "ultrafast", "-crf", "18", "-pix_fmt", "yuv420p"]  # intermediates
+
+
 def configure(cfg: dict) -> None:
     """Cap encoder threads (lower = less power draw on a weak supply)."""
     global ENC
@@ -34,20 +37,20 @@ def _run(cmd: list[str], cwd: Path) -> None:
 
 def _segment(asset: Asset | None, dur: float, out: Path, flip: bool, w: int = W, h: int = H) -> None:
     if asset is None:
-        _run(["-f", "lavfi", "-i", f"color=c=0x101418:s={w}x{h}:r={FPS}", "-t", f"{dur:.3f}", *ENC, out.name], out.parent)
+        _run(["-f", "lavfi", "-i", f"color=c=0x101418:s={w}x{h}:r={FPS}", "-t", f"{dur:.3f}", *FAST, out.name], out.parent)
     elif asset.kind == "image":
         # slow Ken Burns pan across the photo, alternating direction each shot
         x = f"(iw-{w})*(1-t/{dur:.3f})" if flip else f"(iw-{w})*t/{dur:.3f}"
         vf = (f"scale={int(w * 1.15)}:{int(h * 1.15)}:force_original_aspect_ratio=increase,"
               f"crop={w}:{h}:x='{x}':y='(ih-{h})/2',setsar=1,fps={FPS}")
         _run(["-loop", "1", "-framerate", str(FPS), "-t", f"{dur:.3f}", "-i", str(asset.path),
-              "-vf", vf, "-t", f"{dur:.3f}", *ENC, out.name], out.parent)
+              "-vf", vf, "-t", f"{dur:.3f}", *FAST, out.name], out.parent)
     else:
         length = probe(asset.path)["duration"]
         start = random.uniform(0, max(length - dur - 0.5, 0)) if length > dur + 1 else 0
         vf = f"scale={w}:{h}:force_original_aspect_ratio=increase,crop={w}:{h},setsar=1,fps={FPS}"
         _run(["-stream_loop", "-1", "-ss", f"{start:.2f}", "-i", str(asset.path), "-an",
-              "-vf", vf, "-t", f"{dur:.3f}", *ENC, out.name], out.parent)
+              "-vf", vf, "-t", f"{dur:.3f}", *FAST, out.name], out.parent)
 
 
 def _chunks(words: list[dict], size: int) -> list[list[dict]]:

@@ -145,7 +145,7 @@ def _validate(data: dict, words_min: int, words_max: int) -> tuple[dict | None, 
 def post_ok(cfg: dict, niche: dict, text: str) -> bool:
     try:
         data = _chat(cfg, "You are a careful content reviewer. Output JSON only.",
-                     POST_FILTER.format(angle=niche.get("angle", ""), text=text), _model(niche), temperature=0, schema=OK_SCHEMA)
+                     POST_FILTER.format(angle=niche.get("angle", ""), text=text), _model(niche), temperature=0, schema=OK_SCHEMA, task="filter")
     except (requests.RequestException, json.JSONDecodeError, KeyError):
         return False
     return isinstance(data, dict) and data.get("ok") is True

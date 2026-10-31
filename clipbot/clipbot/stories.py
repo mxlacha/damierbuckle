@@ -18,6 +18,7 @@ import logging
 import random
 import shutil
 import subprocess
+import time
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from zoneinfo import ZoneInfo
@@ -166,7 +167,7 @@ def _post_material(cfg: dict, state, niche: dict) -> dict | None:
     if "bluesky" not in niche.get("posts", ["bluesky"]):
         return None
     used_keys = _used_keys(state)
-    for post in research.bluesky_posts(niche.get("bluesky_feeds"), int(niche.get("min_likes", 500)))[:15]:
+    for post in research.bluesky_posts(niche.get("bluesky_feeds"), int(niche.get("min_likes", 500)))[:6]:
         if post["key"] not in used_keys and writer.post_ok(cfg, niche, post["text"]):
             return {**post, "topic": post["text"][:80]}
     return None
@@ -188,8 +189,12 @@ def _background(cfg: dict) -> Path:
 
 
 def produce(cfg: dict, state, niche: dict, fmt: str, slot: datetime, item: dict, tag: str = "") -> str | None:
-    def step(msg: str) -> None:
-        log.info("%s %s", tag, msg)
+    clock = {"start": time.monotonic(), "last": time.monotonic()}
+
+    def step(msg: str) -> None:  # each line also says how long the previous step took
+        now = time.monotonic()
+        log.info("%s %s  (+%.0fs)", tag, msg, now - clock["last"])
+        clock["last"] = now
 
     step(f"writing script: {item['topic'][:70]}")
     script = writer.factcard(cfg, niche, item["text"]) if fmt == "factcard" else \
@@ -301,7 +306,9 @@ def produce(cfg: dict, state, niche: dict, fmt: str, slot: datetime, item: dict,
         state.x("INSERT INTO videos (folder, niche, format, title, topic_key, topic, voice, publish_at, channel, meta) "
                 "VALUES (?,?,?,?,?,?,?,?,?,?)", f"{cfg['_channel']}/{folder}", niche["name"], fmt, meta["title"],
                 item["key"], item["topic"], voice_name, meta["publish_utc"], cfg["_channel"], json.dumps(style))
-        log.info("ready: [%s] %s  %s  %s", cfg["_channel"], meta["publish_local"], niche["label"], meta["title"])
+        step("finished")
+        log.info("ready: [%s] %s  %s  %s  (%.1f min total)", cfg["_channel"], meta["publish_local"], niche["label"],
+                 meta["title"], (time.monotonic() - clock["start"]) / 60)
         return folder
     except Exception:
         log.exception("failed to build %r", item["topic"])

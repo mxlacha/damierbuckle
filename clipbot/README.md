@@ -76,6 +76,17 @@ To enable performance tracking, create a Google Cloud **API key** with YouTube D
 
 Since July 2025, YouTube's "inauthentic content" policy explicitly targets *"channels that upload narrative stories with only superficial differences between them"* and *"slideshows that all have the same narration."* AI-assisted channels stay eligible when the videos add real value. The bot is built to do that: it rotates voices, caption styles and music, rejects repeated topics and premises, grounds facts in sources, and labels fiction as fiction. What helps most beyond that is your own input: record an intro in your own voice sometimes, pick topics you find interesting, and cut weak videos before uploading. Nothing here disguises automation or dodges Content ID; that is what gets channels terminated rather than just demonetized.
 
+### Faster, more reliable writing: your Claude subscription
+
+With `llm.provider: claude-code`, scripts are written by Claude Haiku through the official Claude Code CLI, logged in with your Pro/Max plan. There's no API billing, only a few short calls per video against your plan's usage limits, which are shared with claude.ai. High-volume jobs (screening posts, scanning long transcripts in clip mode) stay on Ollama. If the CLI fails or you hit your limit, the bot falls back to Ollama on the Pi.
+
+One-time setup on the Pi:
+```bash
+curl -fsSL https://claude.ai/install.sh | bash   # installs `claude` to ~/.local/bin
+~/.local/bin/claude                                # log in with your Claude account, then type /exit
+```
+If CreamPi has no browser, run `claude setup-token` on any machine instead and put the token in `llm.oauth_token`.
+
 ### Faster, more reliable writing: the Claude API
 
 Writing scripts on the Pi takes minutes each and small models sometimes miss the format. Set `llm.provider: claude` in `config.yaml` (with your `sk-ant-...` key) to write with Claude Haiku 5.5 instead: seconds per script, and structured outputs guarantee the JSON is valid. At roughly 3-5K tokens per video and $0.10 / $0.50 per million input / output tokens, a channel posting 3 a day costs on the order of a few cents a month. If the API is unreachable, the bot falls back to Ollama on the Pi.

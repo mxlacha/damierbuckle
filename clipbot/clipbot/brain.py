@@ -95,10 +95,59 @@ def _claude(cfg: dict, system: str, user: str, schema: dict | None) -> dict:
     return _parse_json(text)
 
 
+def _claude_bin(llm: dict) -> str | None:
+    import os
+    import shutil
+
+    for path in (llm.get("claude_path"), shutil.which("claude"), os.path.expanduser("~/.local/bin/claude")):
+        if path and os.path.exists(path):
+            return path
+    return None
+
+
+def _claude_code(cfg: dict, system: str, user: str, schema: dict | None) -> dict:
+    """Claude Code CLI in print mode, logged in with a Pro/Max subscription (no API credits).
+    One turn, no tools, run from the work dir so no project instructions get loaded."""
+    import os
+    import subprocess
+
+    llm = cfg["llm"]
+    exe = _claude_bin(llm)
+    if not exe:
+        raise RuntimeError("claude CLI not found (install: curl -fsSL https://claude.ai/install.sh | bash)")
+    if schema:
+        system += "\n\nThe JSON must match this schema exactly:\n" + json.dumps(schema)
+    env = dict(os.environ)
+    if llm.get("oauth_token"):  # from `claude setup-token`; otherwise the CLI's own login is used
+        env["CLAUDE_CODE_OAUTH_TOKEN"] = llm["oauth_token"]
+    cmd = [exe, "-p", "--output-format", "json", "--model", llm.get("model") or "haiku", "--max-turns", "1",
+           "--system-prompt", system,
+           "--disallowedTools", "Bash,Edit,Write,Read,Glob,Grep,WebFetch,WebSearch,Task,NotebookEdit,TodoWrite"]
+    proc = subprocess.run(cmd, input=user, capture_output=True, text=True, timeout=int(llm.get("timeout_s", 240)),
+                          cwd=cfg["paths"]["work"], env=env)
+    try:
+        out = json.loads(proc.stdout)
+    except json.JSONDecodeError:
+        raise RuntimeError(f"claude exited {proc.returncode}: {(proc.stderr or proc.stdout)[:300]}")
+    if out.get("is_error") or not out.get("result"):
+        raise RuntimeError(f"claude: {str(out.get('result') or out.get('subtype'))[:300]}")
+    return _parse_json(out["result"])
+
+
 def _chat(cfg: dict, system: str, user: str, model: str | None = None, temperature: float | None = None,
-          schema: dict | None = None) -> dict:
+          schema: dict | None = None, task: str = "write") -> dict:
     o = cfg["ollama"]
     llm = cfg.get("llm") or {}
+    # high-volume tasks stay on the Pi so they don't eat subscription/API usage
+    if task in (llm.get("ollama_tasks") or ["filter", "clips"]):
+        llm = {}
+    if llm.get("provider") == "claude-code":
+        import subprocess
+
+        try:
+            return _claude_code(cfg, system, user, schema)
+        except (RuntimeError, ValueError, json.JSONDecodeError, subprocess.TimeoutExpired, OSError) as exc:
+            log.warning("Claude Code failed (%s); falling back to Ollama on the Pi", str(exc)[:400])
     if llm.get("provider") == "claude":
         import anthropic
 
@@ -189,7 +238,7 @@ def pick_clips(cfg: dict, transcript: dict, source_title: str) -> list[dict]:
         text = "\n".join(f"[{s['start']:.1f}-{s['end']:.1f}] {s['text']}" for s in window)
         log.info("asking %s about window %d (%d segments)", cfg["ollama"]["model"], i + 1, len(window))
         try:
-            data = _chat(cfg, system, f"Video title: {source_title}\n\nTranscript:\n{text}")
+            data = _chat(cfg, system, f"Video title: {source_title}\n\nTranscript:\n{text}", task="clips")
         except (requests.RequestException, json.JSONDecodeError, KeyError) as exc:
             log.warning("ollama call failed: %s", exc)
             continue

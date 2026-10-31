@@ -19,11 +19,16 @@ channel:
   hashtags: ["#shorts"]
 
 # Where scripts get written; anything but "ollama" falls back to Ollama if it fails.
-#   ollama — on the Pi (free, slow: minutes per script)
+#   ollama      — on the Pi (free, slow: minutes per script)
+#   claude-code — your Claude Pro/Max subscription via the Claude Code CLI on the Pi (no API credits;
+#                 counts toward your plan's usage limits). Install + log in once, see README.
 #   claude — Claude API, Haiku 5.5 by default (seconds per script, guaranteed-valid JSON, ~$0.10/$0.50 per M tokens)
 #   cloud  — any OpenAI-compatible free tier (Gemini, Groq) using base_url/model below
 llm:
   provider: ollama
+  # provider: claude-code
+  # model: haiku                   # haiku uses the least of your plan's limits
+  # ollama_tasks: [filter, clips]  # high-volume jobs that always stay on the Pi
   # provider: claude
   # model: claude-haiku-5-5        # api_key: your sk-ant-... key (or set ANTHROPIC_API_KEY)
   # effort: low
@@ -58,6 +63,7 @@ sources:
 
 whisper:
   model: base.en                  # tiny.en is ~2x faster, base.en is more accurate
+  align_model: tiny.en            # caption timing only (the words are already known), so tiny is plenty
   compute_type: int8
   threads: 4
 
