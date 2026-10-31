@@ -70,8 +70,13 @@ def refresh(cfg: dict, state) -> int | None:
     found: dict[str, str] = {}
     token = None
     for _ in range(6):  # newest 300 uploads
-        page = _get("playlistItems", a["api_key"], part="snippet", playlistId=uploads, maxResults=50,
-                    **({"pageToken": token} if token else {}))
+        try:
+            page = _get("playlistItems", a["api_key"], part="snippet", playlistId=uploads, maxResults=50,
+                        **({"pageToken": token} if token else {}))
+        except requests.HTTPError as exc:
+            if exc.response is not None and exc.response.status_code == 404:
+                break  # brand-new channel: YouTube creates the uploads playlist with the first video
+            raise
         for item in page.get("items", []):
             found[item["snippet"]["resourceId"]["videoId"]] = item["snippet"]["title"]
         token = page.get("nextPageToken")
