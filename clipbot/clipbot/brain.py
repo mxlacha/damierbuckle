@@ -29,15 +29,15 @@ and no missing context. Respond ONLY with JSON in exactly this shape:
 Return at most {n} clips. Use timestamps that exist in the transcript."""
 
 
-def _chat(cfg: dict, system: str, user: str) -> dict:
+def _chat(cfg: dict, system: str, user: str, model: str | None = None, temperature: float | None = None) -> dict:
     o = cfg["ollama"]
     resp = requests.post(
         f"{o['host'].rstrip('/')}/api/chat",
         json={
-            "model": o["model"],
+            "model": model or o["model"],
             "stream": False,
             "format": "json",
-            "options": {"temperature": o["temperature"], "num_ctx": o["num_ctx"]},
+            "options": {"temperature": o["temperature"] if temperature is None else temperature, "num_ctx": o["num_ctx"]},
             "messages": [{"role": "system", "content": system}, {"role": "user", "content": user}],
         },
         timeout=o["timeout_s"],

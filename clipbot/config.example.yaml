@@ -9,6 +9,7 @@ paths:
 
 # Channel identity — this is fed to the LLM so hooks/titles match your style.
 channel:
+  name: "Your Channel"            # shown on story cards
   niche: "funny and surprising moments from tech and science talks"
   voice: "punchy, curious, never clickbait-lying"
   hashtags: ["#shorts"]
@@ -64,8 +65,13 @@ audio:
 
 schedule:
   timezone: America/Chicago
-  publish_times: ["12:00", "18:00"]   # local times; one clip per slot
-  max_uploads_per_run: 2              # YouTube API quota ≈ 6 uploads/day by default
+  # Three Shorts a day. US-audience friendly: late morning, after school/work, evening.
+  publish_times: ["11:00", "16:00", "20:00"]
+  # How far ahead `clipbot stories` fills the calendar. 7 = upload once a week.
+  # Up to 30 works, but the niche switcher can only react to results after
+  # what's already scheduled has gone out, so shorter is smarter.
+  buffer_days: 7
+  max_uploads_per_run: 2              # only used by the optional API uploader
 
 youtube:
   enabled: false                  # true = upload with scheduled publishAt
@@ -73,3 +79,47 @@ youtube:
   token: ~/clipbot/token.json
   category_id: "22"               # 22 = People & Blogs, 24 = Entertainment, 28 = Science & Tech
   made_for_kids: false
+
+# ---------------------------------------------------------------- story engine
+stories:
+  niches_file: niches.yaml        # niche definitions (falls back to niches.example.yaml)
+  tweets_inbox: ~/clipbot/inbox/tweets   # drop tweet screenshots (.png) and/or .txt here
+  library: ~/clipbot/broll        # your own/licensed clips, one folder per tag: broll/f-15/*.mp4
+  backgrounds: ~/clipbot/backgrounds     # looping footage for Reddit-style stories (yours or licensed)
+  pexels_api_key: ""              # free key from pexels.com/api — stock video b-roll
+  commons: true                   # Wikimedia Commons photos (public domain / CC, auto-credited)
+  wikipedia_grounding: true       # history scripts may only use facts from the Wikipedia article
+  # words per script (Kokoro at speed 1.1 ≈ 2.8 words/sec)
+  words:
+    tweet: [70, 110]              # ~25-40 s
+    story: [110, 150]             # ~40-55 s
+    reddit: [160, 230]            # ~55-80 s
+
+voices:
+  engine: kokoro                  # kokoro (natural) or piper (faster, flatter)
+  kokoro_model: ~/clipbot/voices/kokoro-v1.0.onnx
+  kokoro_voices: ~/clipbot/voices/voices-v1.0.bin
+  speed: 1.1
+
+captions:
+  fonts: ["DejaVu Sans"]          # add more installed fonts for variety, e.g. "Montserrat", "Anton"
+  size: 86
+  highlight_colors: ["&H0000F0FF", "&H0000FF7F", "&H00FFD200", "&H004080FF"]  # &HBBGGRR
+
+# Niche auto-switching. Views are only counted once a video is 72h old.
+niche_rules:
+  trial_posts: 30                 # 10 days at 3/day before judging a niche
+  min_age_hours: 72
+  winner_median_views: 3000       # stick with the niche if median views >= this...
+  winner_max_views: 100000        # ...or any single video hits this...
+  winner_subs_gained: 500         # ...or the channel gained this many subs during the niche
+  dud_median_views: 800           # switch if median < this AND
+  dud_max_views: 10000            #   nothing broke this
+  # anything in between gets one extension of trial_posts, then switches if still not a winner
+  fatigue_ratio: 0.25             # a winner whose last 21 posts fall below 25% of its best stretch rotates out
+  dry_strikes: 3                  # topic generator failing this many times in a row = niche ran dry
+
+# Read-only stats (no uploading) so the niche switcher can see performance.
+analytics:
+  api_key: ""                     # Google Cloud API key with YouTube Data API v3 enabled
+  channel_id: ""                  # UC... (YouTube Studio → Settings → Channel → Advanced)

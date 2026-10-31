@@ -1,0 +1,12 @@
+[Unit]
+Description=clipbot: check stats, pick niche, fill the posting calendar with story Shorts
+After=network-online.target ollama.service
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+User=@USER@
+WorkingDirectory=@DIR@
+ExecStart=@DIR@/.venv/bin/python -m clipbot stories
+Nice=10
+TimeoutStartSec=12h

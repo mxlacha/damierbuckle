@@ -18,6 +18,15 @@ class State:
             CREATE TABLE IF NOT EXISTS slots (
                 publish_at TEXT PRIMARY KEY, clip TEXT, video_id TEXT
             );
+            CREATE TABLE IF NOT EXISTS niches (
+                name TEXT PRIMARY KEY, status TEXT, started REAL, subs_start INTEGER,
+                strikes INTEGER DEFAULT 0, best_median REAL DEFAULT 0, note TEXT
+            );
+            CREATE TABLE IF NOT EXISTS videos (
+                folder TEXT PRIMARY KEY, niche TEXT, format TEXT, title TEXT, topic_key TEXT,
+                topic TEXT, voice TEXT, publish_at TEXT, status TEXT DEFAULT 'ready',
+                yt_id TEXT, views INTEGER, likes INTEGER, checked REAL
+            );
             """
         )
 
@@ -35,4 +44,11 @@ class State:
 
     def book_slot(self, publish_at: str, clip: str, video_id: str) -> None:
         self.db.execute("INSERT INTO slots VALUES (?,?,?)", (publish_at, clip, video_id))
+        self.db.commit()
+
+    def q(self, sql: str, *args) -> list[tuple]:
+        return self.db.execute(sql, args).fetchall()
+
+    def x(self, sql: str, *args) -> None:
+        self.db.execute(sql, args)
         self.db.commit()

@@ -1,4 +1,4 @@
-"""CLI: python -m clipbot {make,upload,auth,status,check}"""
+"""CLI: python -m clipbot {stories,stats,uploaded,make,upload,auth,status,check}"""
 
 from __future__ import annotations
 
@@ -9,7 +9,7 @@ import sys
 
 import requests
 
-from . import config, pipeline, uploader
+from . import analytics, config, niches, pipeline, stories, uploader
 from .state import State
 
 
@@ -34,6 +34,11 @@ def check(cfg: dict) -> int:
     except ImportError:
         print("✗ faster-whisper (pip install -r requirements.txt)")
         ok = False
+    from pathlib import Path
+    kokoro = Path(cfg["voices"]["kokoro_model"]).exists()
+    print(f"{'✓' if kokoro else '!'} Kokoro voice model {'found' if kokoro else 'missing — falls back to Piper'}")
+    print(f"{'✓' if cfg['stories'].get('pexels_api_key') else '!'} Pexels key (stock b-roll)")
+    print(f"{'✓' if cfg['analytics'].get('api_key') else '!'} analytics key (needed for performance-based niche switching)")
     tts = shutil.which("piper") or shutil.which("espeak-ng")
     print(f"{'✓' if tts else '!'} TTS: {tts or 'none — narration will be skipped'}")
     return 0 if ok else 1
@@ -49,9 +54,32 @@ def status(cfg: dict) -> int:
     return 0
 
 
+def _subs(cfg: dict, state) -> int | None:
+    try:
+        return analytics.refresh(cfg, state)
+    except Exception as exc:  # stats are a nice-to-have; never block making videos
+        print(f"! analytics refresh failed: {exc}")
+        return None
+
+
+def stats(cfg: dict) -> int:
+    state = State(cfg["paths"]["work"])
+    subs = _subs(cfg, state)
+    print(niches.evaluate(cfg, state, subs))
+    for name, status, strikes, best in state.q("SELECT name, status, strikes, best_median FROM niches ORDER BY started"):
+        print(f"  {name:22} {status:9} strikes={strikes} best_median={best:.0f}")
+    rows = state.q("SELECT publish_at, views, title FROM videos WHERE views IS NOT NULL ORDER BY views DESC LIMIT 5")
+    if rows:
+        print("top videos:")
+        for publish_at, views, title in rows:
+            print(f"  {views:>9,}  {publish_at[:10]}  {title}")
+    return 0
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(prog="clipbot")
-    parser.add_argument("command", choices=["make", "upload", "auth", "status", "check"])
+    parser.add_argument("command", choices=["stories", "stats", "uploaded", "make", "upload", "auth", "status", "check"])
+    parser.add_argument("arg", nargs="?", help="for `uploaded`: last publish date you scheduled (YYYY-MM-DD)")
     parser.add_argument("-c", "--config", help="path to config.yaml")
     parser.add_argument("-v", "--verbose", action="store_true")
     args = parser.parse_args()
@@ -60,7 +88,19 @@ def main() -> int:
         format="%(asctime)s %(levelname)s %(name)s: %(message)s",
     )
     cfg = config.load(args.config)
-    if args.command == "make":
+    if args.command == "stories":
+        state = State(cfg["paths"]["work"])
+        subs = _subs(cfg, state)
+        print(niches.evaluate(cfg, state, subs))
+        made = stories.fill(cfg, subs)
+        print(f"{made} new video(s); upload list: {cfg['paths']['ready']}/UPLOAD_SHEET.csv")
+    elif args.command == "stats":
+        return stats(cfg)
+    elif args.command == "uploaded":
+        if not args.arg:
+            parser.error("usage: clipbot uploaded YYYY-MM-DD")
+        print(f"moved {stories.mark_uploaded(cfg, args.arg)} video(s) to {cfg['paths']['uploaded']}")
+    elif args.command == "make":
         pipeline.run(cfg)
     elif args.command == "upload":
         uploader.upload(cfg)
