@@ -3,4 +3,3 @@ client_secret*.json
 token.json
 .venv/
 __pycache__/
-niches.yaml

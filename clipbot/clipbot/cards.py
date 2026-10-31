@@ -31,8 +31,11 @@ def _accent(seed: str) -> tuple[int, int, int]:
     return int(r * 255), int(g * 255), int(b * 255)
 
 
-def text_card(out: Path, name: str, handle: str, body: str, label: str = "") -> Path:
-    """White rounded card: avatar + name/handle, then wrapped body text."""
+def text_card(out: Path, name: str, handle: str, body: str, label: str = "", dark: bool = False,
+              avatar: Path | None = None) -> Path:
+    """Rounded post card: avatar + name/handle, then wrapped body text. Dark = X/Bluesky night style."""
+    fg, sub, bg = ((240, 240, 240), (140, 145, 150), (0, 0, 0, 250)) if dark else \
+        ((15, 15, 15), (110, 110, 110), (255, 255, 255, 245))
     head_font, small_font, body_font = _font(True, 38), _font(False, 30), _font(True, 46)
     lines = []
     for para in body.split("\n"):
@@ -41,17 +44,23 @@ def text_card(out: Path, name: str, handle: str, body: str, label: str = "") -> 
     height = pad + 96 + 28 + line_h * len(lines) + (54 if label else 0) + pad
     img = Image.new("RGBA", (WIDTH, height), (0, 0, 0, 0))
     d = ImageDraw.Draw(img)
-    d.rounded_rectangle((0, 0, WIDTH - 1, height - 1), radius=36, fill=(255, 255, 255, 245))
-    d.ellipse((pad, pad, pad + 96, pad + 96), fill=_accent(name))
-    d.text((pad + 48, pad + 48), (name[:1] or "?").upper(), font=_font(True, 50), fill="white", anchor="mm")
-    d.text((pad + 120, pad + 8), name, font=head_font, fill=(20, 20, 20))
-    d.text((pad + 120, pad + 56), handle, font=small_font, fill=(110, 110, 110))
+    d.rounded_rectangle((0, 0, WIDTH - 1, height - 1), radius=36, fill=bg)
+    if avatar and avatar.exists():
+        face = Image.open(avatar).convert("RGB").resize((96, 96))
+        mask = Image.new("L", (96, 96), 0)
+        ImageDraw.Draw(mask).ellipse((0, 0, 95, 95), fill=255)
+        img.paste(face, (pad, pad), mask)
+    else:
+        d.ellipse((pad, pad, pad + 96, pad + 96), fill=_accent(name))
+        d.text((pad + 48, pad + 48), (name[:1] or "?").upper(), font=_font(True, 50), fill="white", anchor="mm")
+    d.text((pad + 120, pad + 8), name, font=head_font, fill=fg)
+    d.text((pad + 120, pad + 56), handle, font=small_font, fill=sub)
     y = pad + 96 + 28
     for line in lines:
-        d.text((pad, y), line, font=body_font, fill=(15, 15, 15))
+        d.text((pad, y), line, font=body_font, fill=fg)
         y += line_h
     if label:
-        d.text((pad, y + 14), label, font=small_font, fill=(130, 130, 130))
+        d.text((pad, y + 14), label, font=small_font, fill=sub)
     img.save(out)
     return out
 
@@ -65,5 +74,41 @@ def screenshot_card(src: Path, out: Path) -> Path:
     mask = Image.new("L", img.size, 0)
     ImageDraw.Draw(mask).rounded_rectangle((0, 0, img.width - 1, img.height - 1), radius=30, fill=255)
     img.putalpha(mask)
+    img.save(out)
+    return out
+
+
+def fact_block(out: Path, text: str, dark: bool = True, width: int = 1000, size: int = 50) -> Path:
+    """Caption block for fact cards. **phrases** are highlighted (yellow on dark, like the niche leaders)."""
+    font = _font(True, size) if dark else _font(False, size)
+    fg, hi, bg = ((255, 255, 255), (255, 226, 70), (0, 0, 0)) if dark else ((20, 20, 20), (20, 20, 20), (255, 255, 255))
+    tokens = []
+    for n, part in enumerate(text.split("**")):
+        tokens += [(w, n % 2 == 1) for w in part.split()]
+    pad, space = 34, font.getlength(" ")
+    lines, cur, cur_w = [], [], 0.0
+    glued = []
+    for word, high in tokens:  # keep "**free fall**." from rendering as "free fall ."
+        if glued and all(ch in ".,!?;:" for ch in word):
+            glued[-1] = (glued[-1][0] + word, glued[-1][1])
+        else:
+            glued.append((word, high))
+    for word, high in glued:
+        w = font.getlength(word)
+        if cur and cur_w + space + w > width - 2 * pad:
+            lines.append((cur, cur_w))
+            cur, cur_w = [], 0.0
+        cur_w += (space if cur else 0) + w
+        cur.append((word, high, w))
+    if cur:
+        lines.append((cur, cur_w))
+    line_h = int(size * 1.28)
+    img = Image.new("RGB", (width, pad * 2 + line_h * len(lines)), bg)
+    d = ImageDraw.Draw(img)
+    for i, (words, line_w) in enumerate(lines):
+        x = (width - line_w) / 2 if dark else pad
+        for word, high, w in words:
+            d.text((x, pad + i * line_h), word, font=font, fill=hi if high else fg)
+            x += w + space
     img.save(out)
     return out

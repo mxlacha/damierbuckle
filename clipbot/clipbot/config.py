@@ -42,8 +42,12 @@ def load(path: str | os.PathLike | None = None) -> dict:
     if not niches_path.is_absolute():
         niches_path = path.parent / niches_path
     if not niches_path.exists():
-        niches_path = HERE / "niches.example.yaml"
+        niches_path = HERE / "niches.yaml"
     cfg["niches"] = _expand(yaml.safe_load(niches_path.read_text()) or {}).get("niches", [])
+
+    channels_path = path.parent / "channels.yaml"
+    cfg["channels"] = (_expand(yaml.safe_load(channels_path.read_text()) or {}).get("channels")
+                       if channels_path.exists() else None)
 
     for key in ("inbox", "work", "ready", "uploaded"):
         Path(cfg["paths"][key]).mkdir(parents=True, exist_ok=True)

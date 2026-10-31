@@ -1,0 +1,149 @@
+# Niches the bot rotates through, in order. Copy to niches.yaml to customize.
+#
+# format:
+#   explainer — split screen: topic photo on top, corridor fly-through below, one huge word at a time
+#               (the RyzekYT / cardogjones / GreylinYT look). Facts from Wikipedia only.
+#   post      — a real public post as a dark card over the corridor, voice reads it + a take
+#               (the VorticalVO / SpecularNova look). Bluesky trending + anything in your inbox.
+#   factcard  — highlighted caption block over a public-domain clip, music only
+#               (the xkstoryy / OneSmallChoice / TheTrappist look). NASA clips or your library + .txt facts.
+#   story     — documentary narration, b-roll fills the frame. Facts from Wikipedia/RSS only.
+#   reddit    — original FICTIONAL first-person stories in a forum-post style, labeled as fiction.
+#
+# Strategy knobs (tuned from the weekly reports): words: [min, max], speed, captions (word|karaoke|none),
+# layout, voices, dark_card, voiceover (factcard), min_likes (post), model.
+#
+# voices: Kokoro voice names (am_* US male, af_* US female, bm_*/bf_* British).
+#         One is picked per video, never the same twice in a row.
+# model:  optional per-niche Ollama model (a 7B writes noticeably better stories, just slower).
+# broll:  where background visuals come from, in priority order.
+
+niches:
+  # ---------------------------------------------------------------- split-screen explainers
+  - name: tech_explained
+    format: explainer
+    title: "Tech explained"
+    angle: "how everyday tech secretly works and the wild stories behind gadgets"
+    tone: "casual, confident, slightly mind-blown"
+    seeds: ["Data remanence", "Solid-state drive", "Global Positioning System", "Bluetooth",
+            "QR code", "Lithium-ion battery", "Touchscreen", "Wi-Fi"]
+    voices: [am_puck, am_adam, af_bella]
+    speed: 1.2
+    broll: [local, commons, pexels]
+    hashtags: ["#tech", "#didyouknow"]
+
+  - name: movie_aura
+    format: explainer
+    title: "Movie legends"
+    angle: "directors and actors with legendary behind-the-scenes stories"
+    tone: "hype, respectful, 'this guy has aura'"
+    seeds: ["James Cameron", "Christopher Nolan", "Keanu Reeves", "Tom Cruise", "Stanley Kubrick",
+            "Jackie Chan", "Hayao Miyazaki"]
+    voices: [am_echo, am_puck, am_michael]
+    speed: 1.2
+    broll: [local, commons]
+    hashtags: ["#movies", "#film"]
+
+  - name: sports_explained
+    format: explainer
+    title: "Sports legends"
+    angle: "legendary moments and absurd stats from sports history"
+    tone: "hype but factual"
+    seeds: ["Kobe Bryant", "Wilt Chamberlain 100-point game", "Usain Bolt", "Wayne Gretzky", "Serena Williams"]
+    voices: [am_adam, am_echo]
+    speed: 1.2
+    broll: [local, commons]
+    hashtags: ["#sports", "#nba"]
+
+  # ---------------------------------------------------------------- post commentary
+  - name: post_takes
+    format: post
+    title: "Posts explained"
+    angle: "funny, surprising or clever posts about work, tech and everyday life"
+    tone: "dry, witty, fair"
+    posts: [bluesky]            # plus whatever you drop in ~/clipbot/inbox/tweets/<channel>/
+    min_likes: 500
+    voices: [am_puck, am_adam, af_heart]
+    hashtags: ["#funny", "#posts"]
+
+  # ---------------------------------------------------------------- music-led fact cards
+  - name: space_facts
+    format: factcard
+    title: "Space facts"
+    angle: "mind-bending real footage from space missions and astronaut life"
+    seeds: ["ISS astronaut experiment", "rocket launch slow motion", "spacewalk", "Mars rover",
+            "Apollo moon landing", "zero gravity water", "solar flare"]
+    clips: [nasa, local]
+    hashtags: ["#space", "#nasa", "#physics"]
+
+  - name: engineering_clips
+    format: factcard
+    title: "Engineering clips"
+    angle: "satisfying engineering and machines doing extreme things"
+    clips: [local]              # put clips you have rights to in broll/<tag>/ with a .txt of facts beside each
+    hashtags: ["#engineering", "#cars"]
+
+  - name: military_aviation
+    format: story
+    title: "Military aviation stories"
+    angle: "little-known true stories of fighter jets, pilots and air combat"
+    tone: "tense, cinematic, respectful of the people involved"
+    seeds: ["F-15 Eagle", "SR-71 Blackbird", "A-10 Thunderbolt II", "Operation Bolo",
+            "Chuck Yeager", "F-14 Tomcat", "B-52 Stratofortress", "Battle of Britain"]
+    voices: [am_michael, am_fenrir, bm_george]
+    broll: [local, commons, pexels]
+    hashtags: ["#military", "#aviation", "#history"]
+
+  - name: sports_legends
+    format: story
+    title: "Sports legend stories"
+    angle: "the moments, rivalries and work ethic behind sports legends"
+    tone: "hype but factual, like a great documentary narrator"
+    seeds: ["Kobe Bryant 81-point game", "Michael Jordan flu game", "Miracle on Ice",
+            "Muhammad Ali Rumble in the Jungle", "Tom Brady 28-3 comeback"]
+    voices: [am_adam, am_echo, am_michael]
+    broll: [local, commons, pexels]
+    hashtags: ["#sports", "#nba", "#legend"]
+
+  - name: car_history
+    format: story
+    title: "Car history"
+    angle: "wild true stories behind iconic cars, engines and car companies"
+    tone: "enthusiastic gearhead"
+    seeds: ["Ford GT40 Le Mans", "Lamborghini founding", "Bugatti Veyron", "DeLorean DMC-12",
+            "Toyota 2000GT", "Shelby Cobra"]
+    voices: [am_puck, am_adam, bm_lewis]
+    broll: [local, pexels, commons]
+    hashtags: ["#cars", "#automotive", "#carhistory"]
+
+  - name: money_history
+    format: story
+    title: "Money stories"
+    angle: "famous trades, crashes, frauds and fortunes, explained simply (never financial advice)"
+    tone: "calm, sharp, slightly ominous"
+    seeds: ["Black Monday 1987", "GameStop short squeeze", "Tulip mania", "Enron scandal",
+            "Warren Buffett Berkshire Hathaway", "Long-Term Capital Management"]
+    voices: [bm_george, am_michael, af_nicole]
+    broll: [local, pexels, commons]
+    hashtags: ["#investing", "#money", "#finance"]
+
+  - name: workplace_stories
+    format: reddit
+    title: "Workplace revenge stories"
+    angle: "petty and pro revenge at work: bad bosses, entitled coworkers, malicious compliance"
+    tone: "conversational, dry humor, satisfying payoff"
+    voices: [af_heart, am_adam, af_bella, am_echo]
+    broll: [backgrounds, pexels]
+    background_queries: ["satisfying", "city timelapse", "driving pov"]
+    hashtags: ["#storytime", "#revenge", "#work"]
+
+  # Optional: a niche fed by RSS instead of Wikipedia (current news). Uncomment to use.
+  # - name: car_news
+  #   format: story
+  #   title: "Car news"
+  #   angle: "the biggest automotive news, explained in under a minute"
+  #   tone: "quick, punchy"
+  #   rss: ["https://news.google.com/rss/search?q=automotive+industry&hl=en-US&gl=US&ceid=US:en"]
+  #   voices: [am_puck, am_adam]
+  #   broll: [local, pexels, commons]
+  #   hashtags: ["#cars", "#carnews"]

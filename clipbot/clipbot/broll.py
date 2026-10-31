@@ -113,6 +113,43 @@ def commons(cfg: dict, query: str, used: set, cache: Path) -> Asset | None:
     return None
 
 
+def commons_file(filename: str, cache: Path) -> Asset | None:
+    """A specific Commons file (e.g. a Wikipedia lead image), only if freely licensed."""
+    if not filename:
+        return None
+    r = requests.get(
+        "https://commons.wikimedia.org/w/api.php",
+        params={"action": "query", "format": "json", "titles": f"File:{filename}",
+                "prop": "imageinfo", "iiprop": "url|extmetadata", "iiurlwidth": 1600},
+        headers=UA, timeout=20,
+    )
+    r.raise_for_status()
+    for page in r.json().get("query", {}).get("pages", {}).values():
+        info = (page.get("imageinfo") or [{}])[0]  # missing = local enwiki file, usually non-free: skip
+        meta = info.get("extmetadata", {})
+        license_name = meta.get("LicenseShortName", {}).get("value", "")
+        url = info.get("thumburl") or info.get("url")
+        if url and license_name.lower().startswith(FREE_LICENSES):
+            artist = re.sub(r"<[^>]+>", "", meta.get("Artist", {}).get("value", "")).strip() or "unknown"
+            credit = "" if license_name.lower().startswith(("public domain", "pd", "cc0")) \
+                else f"{filename} by {artist[:60]}, {license_name}, via Wikimedia Commons"
+            return Asset(_download(url, cache, Path(url).suffix.split("?")[0] or ".jpg"), "image", credit)
+    return None
+
+
+def nasa(cfg: dict, query: str, used: set, cache: Path) -> Asset | None:
+    from .research import nasa_clip_url, nasa_videos
+
+    for item in nasa_videos(query, 10):
+        if item["key"] in used:
+            continue
+        url = nasa_clip_url(item["assets"])
+        if url:
+            used.add(item["key"])
+            return Asset(_download(url, cache, ".mp4"), "video")
+    return None
+
+
 def pexels(cfg: dict, query: str, used: set, cache: Path) -> Asset | None:
     key = cfg["stories"].get("pexels_api_key")
     if not key:
@@ -152,6 +189,8 @@ def find(cfg: dict, niche: dict, query: str, used: set) -> Asset | None:
                     asset = commons(cfg, q, used, cache)
                 elif source == "pexels":
                     asset = pexels(cfg, q, used, cache)
+                elif source == "nasa":
+                    asset = nasa(cfg, q, used, cache)
                 else:
                     continue
             except (requests.RequestException, OSError, ValueError) as exc:

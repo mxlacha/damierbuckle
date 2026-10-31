@@ -27,6 +27,14 @@ python3 -m venv "$DIR/.venv"
 # expose the piper CLI installed in the venv
 sudo ln -sf "$DIR/.venv/bin/piper" /usr/local/bin/piper
 
+echo "==> Caption fonts (Poppins ExtraBold, Anton — SIL Open Font License)"
+mkdir -p "$HOME/.local/share/fonts"
+for f in ofl/poppins/Poppins-ExtraBold.ttf ofl/anton/Anton-Regular.ttf; do
+  [ -f "$HOME/.local/share/fonts/$(basename "$f")" ] || \
+    curl -fL -o "$HOME/.local/share/fonts/$(basename "$f")" "https://raw.githubusercontent.com/google/fonts/main/$f"
+done
+fc-cache -f >/dev/null
+
 echo "==> Folders + Piper voice"
 mkdir -p "$DATA"/{inbox/tweets,work,ready,uploaded,music,voices,broll,backgrounds}
 # Kokoro: the natural-sounding voice used for story narration
@@ -40,7 +48,6 @@ for ext in onnx onnx.json; do
   [ -f "$DATA/voices/$VOICE.$ext" ] || curl -fL -o "$DATA/voices/$VOICE.$ext" "$base/$VOICE.$ext"
 done
 
-[ -f "$DIR/niches.yaml" ] || cp "$DIR/niches.example.yaml" "$DIR/niches.yaml"
 [ -f "$DIR/config.yaml" ] || sed "s#model: llama3.2:3b#model: $MODEL#" "$DIR/config.example.yaml" > "$DIR/config.yaml"
 
 echo "==> systemd timers"
@@ -53,13 +60,16 @@ sudo systemctl daemon-reload
 # but off; enable them with: sudo systemctl enable --now clipbot-make.timer
 sudo systemctl enable --now clipbot-stories.timer
 
+echo "==> Corridor backgrounds (one-time, ~30 min on a Pi 5)"
+"$DIR/.venv/bin/python" -m clipbot backgrounds || true
+
 echo "==> Self-check"
 "$DIR/.venv/bin/python" -m clipbot check || true
 
 cat <<MSG
 
 Done. Next steps:
-  1. Edit $DIR/config.yaml (channel name, pexels key, analytics key) and $DIR/niches.yaml.
+  1. Edit $DIR/config.yaml (pexels + analytics keys) and $DIR/channels.yaml (your accounts).
   2. Make a first batch now:   $DIR/.venv/bin/python -m clipbot stories
   3. Upload from $DATA/ready using UPLOAD_SHEET.csv (see README → "Weekly upload routine").
   4. It refills the calendar every night at 01:30.

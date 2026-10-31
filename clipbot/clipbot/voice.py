@@ -33,11 +33,11 @@ def _write_wav(path: Path, samples, rate: int) -> None:
         w.writeframes(pcm.tobytes())
 
 
-def synth(cfg: dict, text: str, voice: str, out_wav: Path) -> Path:
+def synth(cfg: dict, text: str, voice: str, out_wav: Path, speed: float | None = None) -> Path:
     v = cfg["voices"]
     if v.get("engine", "kokoro") == "kokoro" and Path(v["kokoro_model"]).exists():
         try:
-            samples, rate = _get_kokoro(cfg).create(text, voice=voice, speed=float(v["speed"]), lang="en-us")
+            samples, rate = _get_kokoro(cfg).create(text, voice=voice, speed=float(speed or v["speed"]), lang="en-us")
             _write_wav(out_wav, samples, rate)
             return out_wav
         except Exception as exc:

@@ -9,7 +9,7 @@ import sys
 
 import requests
 
-from . import analytics, config, niches, pipeline, stories, uploader
+from . import analytics, channels, config, niches, pipeline, stories, tunnel, uploader
 from .state import State
 
 
@@ -54,32 +54,34 @@ def status(cfg: dict) -> int:
     return 0
 
 
-def _subs(cfg: dict, state) -> int | None:
+def _subs(view: dict, state) -> int | None:
     try:
-        return analytics.refresh(cfg, state)
+        return analytics.refresh(view, state)
     except Exception as exc:  # stats are a nice-to-have; never block making videos
-        print(f"! analytics refresh failed: {exc}")
+        print(f"! [{view['_channel']}] analytics refresh failed: {exc}")
         return None
 
 
-def stats(cfg: dict) -> int:
+def review(cfg: dict, only: str | None = None) -> dict:
+    """Refresh stats, apply niche rules and write reports for every channel. Returns subs per channel."""
     state = State(cfg["paths"]["work"])
-    subs = _subs(cfg, state)
-    print(niches.evaluate(cfg, state, subs))
-    for name, status, strikes, best in state.q("SELECT name, status, strikes, best_median FROM niches ORDER BY started"):
-        print(f"  {name:22} {status:9} strikes={strikes} best_median={best:.0f}")
-    rows = state.q("SELECT publish_at, views, title FROM videos WHERE views IS NOT NULL ORDER BY views DESC LIMIT 5")
-    if rows:
-        print("top videos:")
-        for publish_at, views, title in rows:
-            print(f"  {views:>9,}  {publish_at[:10]}  {title}")
-    return 0
+    subs = {}
+    for view in channels.views(cfg):
+        if only and view["_channel"] != only:
+            continue
+        subs[view["_channel"]] = _subs(view, state)
+        line = niches.evaluate(view, state, subs[view["_channel"]])
+        path = analytics.report(view, state, line)
+        print(f"[{view['_channel']}] {line}\n    report: {path}")
+    return subs
 
 
 def main() -> int:
     parser = argparse.ArgumentParser(prog="clipbot")
-    parser.add_argument("command", choices=["stories", "stats", "uploaded", "make", "upload", "auth", "status", "check"])
-    parser.add_argument("arg", nargs="?", help="for `uploaded`: last publish date you scheduled (YYYY-MM-DD)")
+    parser.add_argument("command", choices=["stories", "stats", "uploaded", "backgrounds", "auth-analytics",
+                                            "make", "upload", "auth", "status", "check"])
+    parser.add_argument("arg", nargs="?", help="uploaded: last scheduled date (YYYY-MM-DD); auth-analytics: channel id")
+    parser.add_argument("--channel", help="limit stats/uploaded to one channel id")
     parser.add_argument("-c", "--config", help="path to config.yaml")
     parser.add_argument("-v", "--verbose", action="store_true")
     args = parser.parse_args()
@@ -89,17 +91,24 @@ def main() -> int:
     )
     cfg = config.load(args.config)
     if args.command == "stories":
-        state = State(cfg["paths"]["work"])
-        subs = _subs(cfg, state)
-        print(niches.evaluate(cfg, state, subs))
-        made = stories.fill(cfg, subs)
-        print(f"{made} new video(s); upload list: {cfg['paths']['ready']}/UPLOAD_SHEET.csv")
+        made = stories.fill(cfg, review(cfg))
+        print(f"{made} new video(s); upload lists: {cfg['paths']['ready']}/<channel>/UPLOAD_SHEET.csv")
     elif args.command == "stats":
-        return stats(cfg)
+        review(cfg, args.channel)
     elif args.command == "uploaded":
         if not args.arg:
-            parser.error("usage: clipbot uploaded YYYY-MM-DD")
-        print(f"moved {stories.mark_uploaded(cfg, args.arg)} video(s) to {cfg['paths']['uploaded']}")
+            parser.error("usage: clipbot uploaded YYYY-MM-DD [--channel id]")
+        print(f"moved {stories.mark_uploaded(cfg, args.arg, args.channel)} video(s) to uploaded/")
+    elif args.command == "backgrounds":
+        from pathlib import Path
+        pool = tunnel.ensure_pool(Path(cfg["stories"]["backgrounds"]) / "generated",
+                                  int(cfg["stories"].get("generated_backgrounds", 8)))
+        print(f"{len(pool)} corridor backgrounds ready")
+    elif args.command == "auth-analytics":
+        view = next((v for v in channels.views(cfg) if v["_channel"] == args.arg), None)
+        if not view:
+            parser.error("usage: clipbot auth-analytics <channel id from channels.yaml>")
+        print("saved", analytics.authorize(view))
     elif args.command == "make":
         pipeline.run(cfg)
     elif args.command == "upload":

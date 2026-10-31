@@ -7,26 +7,44 @@ Two modes, both running fully on the Pi:
 
 ## Story mode
 
-Every night at 01:30 the bot:
+### Channels and formats
 
-1. **Checks stats** (read-only YouTube API key) and decides whether to stick with the current niche or switch.
-2. **Picks a topic** for each open slot in the next `buffer_days`:
-   - `story` niches (military, sports, cars, money…): a real event, grounded in its Wikipedia article (or an RSS news item). The script may only use facts from that source, which keeps you clear of misinformation strikes.
-   - `reddit` niches: an original fictional story in a forum-post style, clearly labeled as fiction.
-   - `tweet` posts: commentary on real posts you drop into `~/clipbot/inbox/tweets/`, at most one a day.
-3. **Writes the script** with Ollama. The hook comes first, short spoken lines, a payoff, and a last line that loops back to the start. Each line also gets a footage search phrase.
-4. **Records the voiceover** with Kokoro, a natural-sounding offline voice. It rotates voices per niche and never uses the same one twice in a row.
-5. **Edits the video**: a new shot on every line. It uses your clip library first (`~/clipbot/broll/f-15/`, `~/clipbot/broll/kobe/`, …), then Wikimedia Commons photos with a slow pan (credited automatically), then Pexels stock video. On top go karaoke captions (the spoken word is highlighted), a hook banner or story card, and music.
-6. **Files it** under `~/clipbot/ready/<date>/<time>_<title>/` and updates `ready/UPLOAD_SHEET.csv`.
+`channels.yaml` lists your YouTube accounts. Each one runs its own niche rotation, its own 3-a-day schedule and its own output folder, `~/clipbot/ready/<channel>/`, so you can trial several niches at once on separate accounts. Niches live in `niches.yaml`. Every niche uses one of five formats, each modeled on a style that's already performing:
+
+| Format | Looks like | Where the content comes from |
+|---|---|---|
+| `explainer` | topic photo in a top panel, blocky corridor fly-through below, one huge word on screen at a time | Wikipedia article (facts) and its lead photo, used only when the photo is freely licensed |
+| `post` | a real public post as a dark card over the corridor; the voice reads it and adds a take | Bluesky trending posts (open API) plus screenshots or `.txt` files you drop in `~/clipbot/inbox/tweets/<channel>/` |
+| `factcard` | caption with **highlighted** phrases above a clip, blurred copy behind it, music only | NASA video library (public domain, with the official description as facts), or your own clips with a `.txt` of facts beside them |
+| `story` | documentary narration over full-screen b-roll | Wikipedia or RSS |
+| `reddit` | original fictional forum-style story, labeled as fiction | Ollama |
+
+The corridor backgrounds are **generated on the Pi** (`clipbot backgrounds`). They're original footage, so there's no gameplay for Content ID to claim, and every loop gets its own palette, blocks and camera sway. If you record your own gameplay, drop it in `~/clipbot/backgrounds/` and it gets mixed in.
+
+### What runs every night (01:30)
+
+1. `sync.sh pull` fetches the latest `channels.yaml` and `niches.yaml` from the repo, so strategy changes reach the Pi.
+2. For each channel: read stats, apply the niche rules, write `reports/<channel>.md` and `.json`.
+3. Fill each channel's open slots for the next `buffer_days`. Ollama finds the material, writes the script (hook first, payoff, loop back) and the title, description and tags. Kokoro voices it, Whisper times the captions, and ffmpeg edits it.
+4. `sync.sh push` commits `reports/` to the repo.
+
+### The strategy loop (Ollama does the volume, Claude does the strategy)
+
+The Pi does all the token-heavy work locally, at no per-video cost. The weekly reports break performance down by every lever the bot controls: niche, format, caption style, voice, posting hour, length bucket and hook, with median views, **retention** (average % viewed) and **RPM** once you're monetized. A weekly Claude review reads `reports/` from the repo, decides what to change, and commits it to `channels.yaml` or `niches.yaml`: word counts, voice speed, caption style, posting times, which niches each account runs, and new seed topics. The Pi picks those changes up the next night.
+
+Setup for the loop:
+- **Push access from the Pi:** create a GitHub deploy key with write access for this repo on the Pi. `sync.sh` never blocks a run if it fails.
+- **Views:** put a Data API key in `config.yaml → analytics.api_key` and each account's `youtube_channel_id` in `channels.yaml`.
+- **Retention and RPM:** run `.venv/bin/python -m clipbot auth-analytics <channel>` once per account, signed in as that channel's owner. This is read-only (`yt-analytics.readonly` and `yt-analytics-monetary.readonly` scopes); nothing can upload or edit.
 
 ### Weekly upload routine (YouTube Studio, by hand)
 
 Uploading through Studio yourself keeps the channel a normal creator account: no API project, no automation flags.
 
-1. Open `ready/UPLOAD_SHEET.csv`. Each row has the date, time, folder, title and whether to tick "altered content".
+1. Open `ready/<channel>/UPLOAD_SHEET.csv` (switch to that channel in Studio first). Each row has the date, time, folder, title and whether to tick "altered content".
 2. In Studio, click **Create → Upload videos** and drag in up to 15 `video.mp4` files at once.
 3. For each one, paste `title.txt` and `description.txt`, choose **Made for kids: No**, and answer "Altered or synthetic content" as the sheet says (Yes for fictional stories). On the Visibility step, choose **Schedule** and enter the sheet's date and time.
-4. When done, run `.venv/bin/python -m clipbot uploaded 2026-11-07`, using the last date you scheduled. That moves those folders to `uploaded/`. If analytics is set up, the bot also detects uploads by title automatically. Keep the titles as written so it can match them.
+4. When done, run `.venv/bin/python -m clipbot uploaded 2026-11-07 --channel <id>`, using the last date you scheduled. That moves those folders to `uploaded/`. If analytics is set up, the bot also detects uploads by title automatically. Keep the titles as written so it can match them.
 
 **Scheduling a month out:** Studio's scheduler accepts dates months ahead, so you *can* set `buffer_days: 30` and do one big session of about 90 uploads. A week at a time is better, for two reasons. YouTube's daily upload cap isn't published and is lower for new channels, so 90 in one day may hit it. And the niche switcher can't change what's already scheduled, so a month-long queue means a month of a dud niche.
 
@@ -52,13 +70,15 @@ To enable performance tracking, create a Google Cloud **API key** with YouTube D
 - **Military footage is easy.** U.S. government footage (DVIDS, defense.gov) is public domain. Download it into `broll/f-15/`, `broll/a-10/` and so on.
 - **Reddit-style backgrounds:** use footage you recorded yourself (your own gameplay, driving, satisfying clips) or Pexels. Re-uploaded "Minecraft parkour" from other channels gets claimed.
 
+- **Fact-card accounts that repost viral clips** (many of the big ones) are re-uploading other people's videos. Their reach is real, but so are the claims and strikes, and that's the pattern YouTube's reused-content rule targets. Here the clip is public domain (NASA) or yours, and the caption is original writing.
+
 ### Staying monetizable
 
 Since July 2025, YouTube's "inauthentic content" policy explicitly targets *"channels that upload narrative stories with only superficial differences between them"* and *"slideshows that all have the same narration."* AI-assisted channels stay eligible when the videos add real value. The bot is built to do that: it rotates voices, caption styles and music, rejects repeated topics and premises, grounds facts in sources, and labels fiction as fiction. What helps most beyond that is your own input: record an intro in your own voice sometimes, pick topics you find interesting, and cut weak videos before uploading. Nothing here disguises automation or dodges Content ID; that is what gets channels terminated rather than just demonetized.
 
-### Tuning to accounts that work
+### Bigger writer model
 
-Send Claude screenshots of top accounts, showing their hooks, video lengths, caption style and posting rhythm. That turns them into niche entries (`angle`, `tone`, `seeds`, voices) and length or caption settings. A larger writer model also helps a lot. On an 8 GB Pi, set `model: qwen2.5:7b` on a niche (`ollama pull qwen2.5:7b`). It's about 2–3× slower, which is fine for an overnight run.
+On an 8 GB Pi, `model: qwen2.5:7b` on a niche (`ollama pull qwen2.5:7b`) writes noticeably better hooks. It's about 2–3× slower, which is fine for an overnight run. With several channels, keep `llama3.2:3b` for `factcard` (short captions) and spend the time on `explainer` and `post`.
 
 ## Clip mode
 
@@ -140,7 +160,15 @@ Only feed the bot videos **you own** or that are **Creative Commons** licensed. 
 ```
 clipbot/
 ├── clipbot/
-│   ├── sources.py     # inbox + yt-dlp (with license filter)
+│   ├── stories.py     # story mode: material → script → voice → edit → ready/<channel>/
+│   ├── channels.py    # per-account views of the config
+│   ├── niches.py      # trial / winner / dud / dry rotation per channel
+│   ├── writer.py      # Ollama prompts per format
+│   ├── compose.py     # layouts: full, split, card, factcard; word/karaoke captions
+│   ├── tunnel.py      # generated corridor backgrounds
+│   ├── research.py    # Wikipedia, RSS, NASA, Bluesky
+│   ├── analytics.py   # read-only stats, retention/RPM, weekly reports
+│   ├── sources.py     # clip mode: inbox + yt-dlp (with license filter)
 │   ├── transcribe.py  # faster-whisper, cached per video
 │   ├── brain.py       # Ollama prompt, chunking, timestamp snapping
 │   ├── tts.py         # Piper (espeak-ng fallback)
@@ -148,6 +176,10 @@ clipbot/
 │   ├── pipeline.py    # orchestrates make → ready/
 │   ├── uploader.py    # YouTube Data API scheduled uploads
 │   └── state.py       # SQLite: processed sources + booked slots
+├── channels.yaml      # your accounts (strategy, tracked in git)
+├── niches.yaml        # niche definitions (strategy, tracked in git)
+├── reports/           # written nightly, pushed by sync.sh
+├── sync.sh
 ├── config.example.yaml
 ├── install.sh
 └── systemd/

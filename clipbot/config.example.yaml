@@ -82,7 +82,7 @@ youtube:
 
 # ---------------------------------------------------------------- story engine
 stories:
-  niches_file: niches.yaml        # niche definitions (falls back to niches.example.yaml)
+  niches_file: niches.yaml        # niche definitions (tracked in git; tuned from the weekly reports)
   tweets_inbox: ~/clipbot/inbox/tweets   # drop tweet screenshots (.png) and/or .txt here
   library: ~/clipbot/broll        # your own/licensed clips, one folder per tag: broll/f-15/*.mp4
   backgrounds: ~/clipbot/backgrounds     # looping footage for Reddit-style stories (yours or licensed)
@@ -93,7 +93,10 @@ stories:
   words:
     tweet: [70, 110]              # ~25-40 s
     story: [110, 150]             # ~40-55 s
+    explainer: [90, 130]          # ~32-47 s, fast talkers win here
     reddit: [160, 230]            # ~55-80 s
+    factcard: [35, 65]            # on-screen caption, read silently over music
+  generated_backgrounds: 8        # corridor loops kept in backgrounds/generated (90 s each)
 
 voices:
   engine: kokoro                  # kokoro (natural) or piper (faster, flatter)
@@ -102,7 +105,7 @@ voices:
   speed: 1.1
 
 captions:
-  fonts: ["DejaVu Sans"]          # add more installed fonts for variety, e.g. "Montserrat", "Anton"
+  fonts: ["Poppins ExtraBold", "Anton", "DejaVu Sans"]   # install.sh fetches Poppins + Anton
   size: 86
   highlight_colors: ["&H0000F0FF", "&H0000FF7F", "&H00FFD200", "&H004080FF"]  # &HBBGGRR
 

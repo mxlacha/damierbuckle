@@ -12,10 +12,16 @@ from datetime import datetime, timedelta, timezone
 
 log = logging.getLogger(__name__)
 LIVE = ("trial", "extended", "winner")
+FORMATS = ("story", "explainer", "reddit", "post", "factcard")
 
 
 def _story_niches(cfg: dict) -> dict[str, dict]:
-    return {n["name"]: n for n in cfg["niches"] if n.get("format") in ("story", "reddit")}
+    return {n["name"]: n for n in cfg["niches"] if n.get("format") in FORMATS}
+
+
+def _mine(cfg: dict) -> str:
+    """LIKE pattern for this channel's niches (names are 'channel/niche')."""
+    return f"{cfg.get('_channel', 'main')}/%"
 
 
 def _start(state, name: str, subs: int | None, note: str) -> None:
@@ -31,8 +37,9 @@ def _start(state, name: str, subs: int | None, note: str) -> None:
 def active(cfg: dict, state, subs: int | None = None) -> dict:
     niches = _story_niches(cfg)
     if not niches:
-        raise SystemExit("no story/reddit niches defined in niches.yaml")
-    row = state.q(f"SELECT name FROM niches WHERE status IN {LIVE} ORDER BY started DESC LIMIT 1")
+        raise SystemExit(f"channel {cfg.get('_channel')}: no niches defined")
+    row = state.q(f"SELECT name FROM niches WHERE status IN {LIVE} AND name LIKE ? ORDER BY started DESC LIMIT 1",
+                  _mine(cfg))
     if row and row[0][0] in niches:
         return niches[row[0][0]]
     return rotate(cfg, state, subs, "first run")
@@ -40,18 +47,18 @@ def active(cfg: dict, state, subs: int | None = None) -> dict:
 
 def rotate(cfg: dict, state, subs: int | None, reason: str) -> dict:
     niches = _story_niches(cfg)
-    tried = {name for (name,) in state.q("SELECT name FROM niches")}
+    tried = {name for (name,) in state.q("SELECT name FROM niches WHERE name LIKE ?", _mine(cfg))}
     for name in niches:
         if name not in tried:
             _start(state, name, subs, reason)
             return niches[name]
     # every niche has had a go: re-open the best performer that hasn't run dry
     for (name,) in state.q("SELECT name FROM niches WHERE status NOT IN ('dry') AND status NOT IN "
-                           f"{LIVE} ORDER BY best_median DESC"):
+                           f"{LIVE} AND name LIKE ? ORDER BY best_median DESC", _mine(cfg)):
         if name in niches:
             _start(state, name, subs, f"{reason}; revisiting best previous niche")
             return niches[name]
-    raise SystemExit("every niche has run dry — add more to niches.yaml")
+    raise SystemExit(f"channel {cfg.get('_channel')}: every niche has run dry — add more in channels.yaml")
 
 
 def strike(cfg: dict, state, niche: dict, subs: int | None = None) -> dict:
@@ -72,7 +79,7 @@ def evaluate(cfg: dict, state, subs: int | None) -> str:
     """Judge the active niche on videos old enough to have settled. Returns a status line."""
     r = cfg["niche_rules"]
     row = state.q(f"SELECT name, status, started, subs_start, best_median FROM niches "
-                  f"WHERE status IN {LIVE} ORDER BY started DESC LIMIT 1")
+                  f"WHERE status IN {LIVE} AND name LIKE ? ORDER BY started DESC LIMIT 1", _mine(cfg))
     if not row:
         return "no active niche yet"
     name, status, started, subs_start, best = row[0]
