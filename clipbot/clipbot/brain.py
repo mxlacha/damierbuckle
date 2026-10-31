@@ -29,8 +29,42 @@ and no missing context. Respond ONLY with JSON in exactly this shape:
 Return at most {n} clips. Use timestamps that exist in the transcript."""
 
 
+def _parse_json(text: str) -> dict:
+    """Models sometimes wrap JSON in ``` fences or add a sentence around it."""
+    text = text.strip().removeprefix("```json").removeprefix("```").removesuffix("```").strip()
+    try:
+        return json.loads(text)
+    except json.JSONDecodeError:
+        start, end = text.find("{"), text.rfind("}")
+        if start == -1 or end <= start:
+            raise
+        return json.loads(text[start:end + 1])
+
+
+def _cloud(cfg: dict, system: str, user: str, temperature: float) -> dict:
+    """Any OpenAI-compatible API (Gemini, Groq, OpenRouter...): seconds instead of minutes per script."""
+    llm = cfg["llm"]
+    body = {"model": llm["model"], "temperature": temperature,
+            "messages": [{"role": "system", "content": system}, {"role": "user", "content": user}],
+            "response_format": {"type": "json_object"}}
+    url = f"{llm['base_url'].rstrip('/')}/chat/completions"
+    headers = {"Authorization": f"Bearer {llm['api_key']}"}
+    resp = requests.post(url, json=body, headers=headers, timeout=120)
+    if resp.status_code == 400 and "response_format" in resp.text:  # provider without JSON mode
+        body.pop("response_format")
+        resp = requests.post(url, json=body, headers=headers, timeout=120)
+    resp.raise_for_status()
+    return _parse_json(resp.json()["choices"][0]["message"]["content"])
+
+
 def _chat(cfg: dict, system: str, user: str, model: str | None = None, temperature: float | None = None) -> dict:
     o = cfg["ollama"]
+    llm = cfg.get("llm") or {}
+    if llm.get("provider") == "cloud" and llm.get("api_key"):
+        try:
+            return _cloud(cfg, system, user, o["temperature"] if temperature is None else temperature)
+        except (requests.RequestException, json.JSONDecodeError, KeyError, IndexError) as exc:
+            log.warning("cloud LLM failed (%s); falling back to Ollama on the Pi", str(exc)[:200])
     resp = requests.post(
         f"{o['host'].rstrip('/')}/api/chat",
         json={
@@ -44,7 +78,7 @@ def _chat(cfg: dict, system: str, user: str, model: str | None = None, temperatu
         timeout=o["timeout_s"],
     )
     resp.raise_for_status()
-    return json.loads(resp.json()["message"]["content"])
+    return _parse_json(resp.json()["message"]["content"])
 
 
 def _windows(segments: list[dict], max_chars: int) -> list[list[dict]]:

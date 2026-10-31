@@ -18,11 +18,12 @@ RULES = """Rules for Shorts that hold attention:
 - Short spoken sentences, 5-14 words each. One idea per line. No lists, no emojis, no hashtags.
 - Build tension, put the payoff near the end, and make the last line loop back to the hook.
 - Write numbers the way a narrator says them.
-- {words_min}-{words_max} words in total across all lines.
+- About {words_target} words in total (8-12 sentences).
 Respond ONLY with JSON:
 {{"title": "<YouTube title, max 60 chars, curiosity without lying>",
   "hook_text": "<max 6 words shown on screen in the first seconds>",
-  "lines": [{{"text": "<one spoken sentence>", "visual": "<2-5 word search phrase for footage of this line>"}}],
+  "script": "<the full voiceover, plain sentences>",
+  "visuals": ["<2-5 word footage search phrase>", "<one per 2-3 sentences>"],
   "description": "<2 sentences>",
   "tags": ["<tag>", "..."]}}"""
 
@@ -41,7 +42,7 @@ The title should read like a post title. Visual phrases describe the mood (e.g. 
 """ + RULES
 
 TWEET = """You make commentary Shorts for: {title}. Tone: {tone}.
-You are reacting to a real public post. Line 1 must read the post VERBATIM (visual: "card").
+You are reacting to a real public post. The first sentence must read the post VERBATIM.
 Then give a sharp, fair, original take: context, why it blew up, and your verdict.
 Never state unverified claims about real people as fact. No insults about protected traits.
 """ + RULES
@@ -94,25 +95,36 @@ def ideas(cfg: dict, niche: dict, used: list[str], n: int = 8) -> list[str]:
     return [str(x).strip() for x in items if str(x).strip()]
 
 
+def _sentences(text: str) -> list[str]:
+    return [t.strip() for t in re.split(r"(?<=[.!?])\s+", re.sub(r"\s+", " ", text)) if t.strip()]
+
+
 def _validate(data: dict, words_min: int, words_max: int) -> tuple[dict | None, str]:
+    """Accept anything usable; fix near-misses instead of paying for another slow rewrite."""
     if not isinstance(data, dict):
         return None, "Respond with a JSON object."
-    lines = [l for l in data.get("lines") or [] if isinstance(l, dict) and str(l.get("text", "")).strip()]
-    if len(lines) < 4:
-        return None, "Write at least 6 lines."
-    count = sum(len(str(l["text"]).split()) for l in lines)
-    if count < words_min * 0.85:
-        return None, f"Too short ({count} words). Write {words_min}-{words_max} words."
-    if count > words_max * 1.15:
-        return None, f"Too long ({count} words). Cut to {words_min}-{words_max} words."
-    clean_lines = [
-        {"text": re.sub(r"\s+", " ", str(l["text"])).strip(), "visual": str(l.get("visual") or "").strip()}
-        for l in lines
-    ]
+    # small models mix up the shape: take "script" text, "lines" objects or plain strings
+    if isinstance(data.get("script"), str):
+        sentences = _sentences(data["script"])
+    else:
+        sentences = []
+        for line in data.get("lines") or data.get("script") or []:
+            text = line.get("text", "") if isinstance(line, dict) else str(line)
+            sentences += _sentences(text)
+    if len(sentences) < 3 or sum(len(s.split()) for s in sentences) < words_min * 0.6:
+        return None, f"Too short. Write about {(words_min + words_max) // 2} words in 8-12 sentences."
+    # too long: drop sentences before the last one (keeps the hook and the loop-back ending)
+    while len(sentences) > 4 and sum(len(s.split()) for s in sentences) > words_max * 1.1:
+        sentences.pop(-2)
+    visuals = [str(v).strip() for v in data.get("visuals") or [] if str(v).strip()]
+    visuals += [str(l.get("visual", "")).strip() for l in data.get("lines") or [] if isinstance(l, dict)]
+    visuals = [v for v in visuals if v]
+    lines = [{"text": s, "visual": visuals[i * len(visuals) // len(sentences)] if visuals else ""}
+             for i, s in enumerate(sentences)]
     return {
-        "title": str(data.get("title") or clean_lines[0]["text"]).strip().strip('"')[:90],
+        "title": str(data.get("title") or sentences[0]).strip().strip('"')[:90],
         "hook_text": str(data.get("hook_text") or "").strip().strip('"')[:40],
-        "lines": clean_lines,
+        "lines": lines,
         "description": str(data.get("description") or "").strip()[:900],
         "tags": [str(t).lstrip("#").strip() for t in data.get("tags") or [] if str(t).strip()][:12],
     }, ""
@@ -138,7 +150,7 @@ def factcard(cfg: dict, niche: dict, material: str) -> dict | None:
     system = FACTCARD.format(title=niche.get("title", niche["name"]), angle=niche.get("angle", ""),
                              words_min=words_min, words_max=words_max)
     user = f"SOURCE:\n{material}"
-    for attempt in range(3):
+    for attempt in range(2):
         try:
             data = _chat(cfg, system, user, _model(niche), temperature=0.5)
         except (requests.RequestException, json.JSONDecodeError, KeyError) as exc:
@@ -146,7 +158,10 @@ def factcard(cfg: dict, niche: dict, material: str) -> dict | None:
             continue
         caption = re.sub(r"\s+", " ", str((data or {}).get("caption", ""))).strip() if isinstance(data, dict) else ""
         count = len(caption.replace("**", "").split())
-        if words_min * 0.8 <= count <= words_max * 1.2 and "**" in caption:
+        if count >= words_min * 0.6:
+            if "**" not in caption:  # no highlights: emphasise the first clause instead of retrying
+                head, _, rest = caption.partition(",")
+                caption = f"**{head}**,{rest}" if rest else f"**{caption}**"
             return {"title": str(data.get("title") or caption[:60]).strip().strip('"')[:90], "caption": caption,
                     "description": str(data.get("description") or "").strip()[:900],
                     "tags": [str(t).lstrip("#").strip() for t in data.get("tags") or [] if str(t).strip()][:12],
@@ -162,11 +177,11 @@ def script(cfg: dict, niche: dict, fmt: str, material: str) -> dict | None:
     template = {"story": STORY, "explainer": EXPLAINER, "reddit": REDDIT, "tweet": TWEET}[fmt]
     system = template.format(
         title=niche.get("title", niche["name"]), angle=niche.get("angle", ""), tone=niche.get("tone", ""),
-        words_min=words_min, words_max=words_max,
+        words_min=words_min, words_max=words_max, words_target=(words_min + words_max) // 2,
     )
     label = {"story": "SOURCE", "explainer": "SOURCE", "reddit": "PREMISE", "tweet": "POST"}[fmt]
     user = f"{label}:\n{material}"
-    for attempt in range(3):
+    for attempt in range(2):
         try:
             data = _chat(cfg, system, user, _model(niche), temperature=0.8 if fmt == "reddit" else 0.5)
         except (requests.RequestException, json.JSONDecodeError, KeyError) as exc:

@@ -18,6 +18,16 @@ channel:
   voice: "punchy, curious, never clickbait-lying"
   hashtags: ["#shorts"]
 
+# Where scripts get written. "ollama" = on the Pi (free, slow: minutes per script).
+# "cloud" = a free-tier OpenAI-compatible API (seconds per script); falls back to Ollama if it fails.
+llm:
+  provider: ollama
+  # Google Gemini (free key: aistudio.google.com → Get API key)
+  base_url: https://generativelanguage.googleapis.com/v1beta/openai/
+  model: gemini-2.5-flash
+  # Groq instead (free key: console.groq.com): base_url https://api.groq.com/openai/v1, model openai/gpt-oss-120b
+  api_key: ""
+
 ollama:
   host: http://localhost:11434
   # Good Pi 5 choices: llama3.2:3b (8GB Pi), qwen2.5:3b, or llama3.2:1b (4GB Pi)

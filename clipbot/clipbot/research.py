@@ -13,7 +13,7 @@ UA = {"User-Agent": "clipbot/1.0 (personal Raspberry Pi project)"}
 WIKI = "https://en.wikipedia.org/w/api.php"
 
 
-def wikipedia(topic: str, max_chars: int = 5000) -> dict | None:
+def wikipedia(topic: str, max_chars: int = 3000) -> dict | None:
     """Best-matching article for `topic`: {key, title, url, text}."""
     r = requests.get(
         WIKI,
