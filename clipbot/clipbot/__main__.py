@@ -37,7 +37,8 @@ def check(cfg: dict) -> int:
     from pathlib import Path
     kokoro = Path(cfg["voices"]["kokoro_model"]).exists()
     print(f"{'✓' if kokoro else '!'} Kokoro voice model {'found' if kokoro else 'missing — falls back to Piper'}")
-    print(f"{'✓' if cfg['stories'].get('pexels_api_key') else '!'} Pexels key (stock b-roll)")
+    stock = [n for n in ("pixabay", "pexels") if cfg["stories"].get(f"{n}_api_key")]
+    print(f"{'✓' if stock else '!'} stock video keys: {', '.join(stock) or 'none (uses library, Commons, NASA)'}")
     print(f"{'✓' if cfg['analytics'].get('api_key') else '!'} analytics key (needed for performance-based niche switching)")
     tts = shutil.which("piper") or shutil.which("espeak-ng")
     print(f"{'✓' if tts else '!'} TTS: {tts or 'none — narration will be skipped'}")

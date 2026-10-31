@@ -4,6 +4,7 @@ Order is per niche (e.g. [local, commons, pexels]):
   local       — your own/licensed clips in stories.library/<tag>/ (folder name = tag, e.g. "f-15", "kobe")
   backgrounds — any file in stories.backgrounds/ (for Reddit-style stories)
   commons     — Wikimedia Commons photos that are public domain or CC (credited in the description)
+  pixabay     — Pixabay stock video (free license, needs stories.pixabay_api_key)
   pexels      — Pexels stock video (free license, needs stories.pexels_api_key)
 """
 
@@ -150,6 +151,30 @@ def nasa(cfg: dict, query: str, used: set, cache: Path) -> Asset | None:
     return None
 
 
+def pixabay(cfg: dict, query: str, used: set, cache: Path) -> Asset | None:
+    """Pixabay stock video (free key at pixabay.com/api/docs; Pixabay Content License, no credit needed)."""
+    key = cfg["stories"].get("pixabay_api_key")
+    if not key:
+        return None
+    r = requests.get("https://pixabay.com/api/videos/",
+                     params={"key": key, "q": query[:100], "per_page": 20, "safesearch": "true"},
+                     headers=UA, timeout=20)
+    r.raise_for_status()
+    hits = r.json().get("hits", [])
+    random.shuffle(hits)
+    for hit in hits:
+        page = hit.get("pageURL", str(hit.get("id")))
+        if page in used:
+            continue
+        files = [f for f in (hit.get("videos") or {}).values() if f.get("url") and (f.get("height") or 0) >= 720]
+        if not files:
+            continue
+        best = min(files, key=lambda f: abs((f.get("height") or 0) - 1080))
+        used.add(page)
+        return Asset(_download(best["url"], cache, ".mp4"), "video")
+    return None
+
+
 def pexels(cfg: dict, query: str, used: set, cache: Path) -> Asset | None:
     key = cfg["stories"].get("pexels_api_key")
     if not key:
@@ -189,6 +214,8 @@ def find(cfg: dict, niche: dict, query: str, used: set) -> Asset | None:
                     asset = commons(cfg, q, used, cache)
                 elif source == "pexels":
                     asset = pexels(cfg, q, used, cache)
+                elif source == "pixabay":
+                    asset = pixabay(cfg, q, used, cache)
                 elif source == "nasa":
                     asset = nasa(cfg, q, used, cache)
                 else:

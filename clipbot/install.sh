@@ -69,7 +69,7 @@ echo "==> Self-check"
 cat <<MSG
 
 Done. Next steps:
-  1. Edit $DIR/config.yaml (pexels + analytics keys) and $DIR/channels.yaml (your accounts).
+  1. Edit $DIR/config.yaml (pixabay + analytics keys) and $DIR/channels.yaml (your accounts).
   2. Make a first batch now:   $DIR/.venv/bin/python -m clipbot stories
   3. Upload from $DATA/ready using UPLOAD_SHEET.csv (see README → "Weekly upload routine").
   4. It refills the calendar every night at 01:30.

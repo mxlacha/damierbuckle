@@ -29,7 +29,7 @@ niches:
             "QR code", "Lithium-ion battery", "Touchscreen", "Wi-Fi"]
     voices: [am_puck, am_adam, af_bella]
     speed: 1.2
-    broll: [local, commons, pexels]
+    broll: [local, commons, pixabay, pexels]
     hashtags: ["#tech", "#didyouknow"]
 
   - name: movie_aura
@@ -91,7 +91,7 @@ niches:
     seeds: ["F-15 Eagle", "SR-71 Blackbird", "A-10 Thunderbolt II", "Operation Bolo",
             "Chuck Yeager", "F-14 Tomcat", "B-52 Stratofortress", "Battle of Britain"]
     voices: [am_michael, am_fenrir, bm_george]
-    broll: [local, commons, pexels]
+    broll: [local, commons, pixabay, pexels]
     hashtags: ["#military", "#aviation", "#history"]
 
   - name: sports_legends
@@ -102,7 +102,7 @@ niches:
     seeds: ["Kobe Bryant 81-point game", "Michael Jordan flu game", "Miracle on Ice",
             "Muhammad Ali Rumble in the Jungle", "Tom Brady 28-3 comeback"]
     voices: [am_adam, am_echo, am_michael]
-    broll: [local, commons, pexels]
+    broll: [local, commons, pixabay, pexels]
     hashtags: ["#sports", "#nba", "#legend"]
 
   - name: car_history
@@ -113,7 +113,7 @@ niches:
     seeds: ["Ford GT40 Le Mans", "Lamborghini founding", "Bugatti Veyron", "DeLorean DMC-12",
             "Toyota 2000GT", "Shelby Cobra"]
     voices: [am_puck, am_adam, bm_lewis]
-    broll: [local, pexels, commons]
+    broll: [local, pixabay, pexels, commons]
     hashtags: ["#cars", "#automotive", "#carhistory"]
 
   - name: money_history
@@ -124,7 +124,7 @@ niches:
     seeds: ["Black Monday 1987", "GameStop short squeeze", "Tulip mania", "Enron scandal",
             "Warren Buffett Berkshire Hathaway", "Long-Term Capital Management"]
     voices: [bm_george, am_michael, af_nicole]
-    broll: [local, pexels, commons]
+    broll: [local, pixabay, pexels, commons]
     hashtags: ["#investing", "#money", "#finance"]
 
   - name: workplace_stories
@@ -133,7 +133,7 @@ niches:
     angle: "petty and pro revenge at work: bad bosses, entitled coworkers, malicious compliance"
     tone: "conversational, dry humor, satisfying payoff"
     voices: [af_heart, am_adam, af_bella, am_echo]
-    broll: [backgrounds, pexels]
+    broll: [backgrounds, pixabay, pexels]
     background_queries: ["satisfying", "city timelapse", "driving pov"]
     hashtags: ["#storytime", "#revenge", "#work"]
 
@@ -145,5 +145,5 @@ niches:
   #   tone: "quick, punchy"
   #   rss: ["https://news.google.com/rss/search?q=automotive+industry&hl=en-US&gl=US&ceid=US:en"]
   #   voices: [am_puck, am_adam]
-  #   broll: [local, pexels, commons]
+  #   broll: [local, pixabay, pexels, commons]
   #   hashtags: ["#cars", "#carnews"]

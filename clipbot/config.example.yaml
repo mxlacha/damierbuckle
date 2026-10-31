@@ -86,7 +86,8 @@ stories:
   tweets_inbox: ~/clipbot/inbox/tweets   # drop tweet screenshots (.png) and/or .txt here
   library: ~/clipbot/broll        # your own/licensed clips, one folder per tag: broll/f-15/*.mp4
   backgrounds: ~/clipbot/backgrounds     # looping footage for Reddit-style stories (yours or licensed)
-  pexels_api_key: ""              # free key from pexels.com/api — stock video b-roll
+  pixabay_api_key: ""             # free key from pixabay.com/api/docs — stock video b-roll
+  pexels_api_key: ""              # optional second stock source (Pexels key sign-ups may be paused)
   commons: true                   # Wikimedia Commons photos (public domain / CC, auto-credited)
   wikipedia_grounding: true       # history scripts may only use facts from the Wikipedia article
   # words per script (Kokoro at speed 1.1 ≈ 2.8 words/sec)

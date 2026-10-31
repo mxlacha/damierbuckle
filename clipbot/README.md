@@ -68,7 +68,7 @@ To enable performance tracking, create a Google Cloud **API key** with YouTube D
 
 - **Real sports and news footage (Kobe highlights, broadcast clips) belongs to the leagues and networks.** Content ID will claim it, and the revenue goes to them or the video gets blocked. The bot doesn't download it. For athletes it uses CC-licensed photos from Commons. Only put clips in `~/clipbot/broll/<tag>/` that you have the rights to.
 - **Military footage is easy.** U.S. government footage (DVIDS, defense.gov) is public domain. Download it into `broll/f-15/`, `broll/a-10/` and so on.
-- **Reddit-style backgrounds:** use footage you recorded yourself (your own gameplay, driving, satisfying clips) or Pexels. Re-uploaded "Minecraft parkour" from other channels gets claimed.
+- **Reddit-style backgrounds:** use footage you recorded yourself (your own gameplay, driving, satisfying clips) or Pixabay stock video. Re-uploaded "Minecraft parkour" from other channels gets claimed.
 
 - **Fact-card accounts that repost viral clips** (many of the big ones) are re-uploading other people's videos. Their reach is real, but so are the claims and strikes, and that's the pattern YouTube's reused-content rule targets. Here the clip is public domain (NASA) or yours, and the caption is original writing.
 
@@ -103,7 +103,7 @@ git clone <this repo> && cd <repo>/clipbot
 # On a 4 GB Pi use a smaller model:  CLIPBOT_MODEL=llama3.2:1b ./install.sh
 ```
 
-Then edit `clipbot/config.yaml` (set `channel.name`, `stories.pexels_api_key` and `analytics`) and `clipbot/niches.yaml`.
+Then edit `clipbot/config.yaml` (set `stories.pixabay_api_key` and `analytics`) and `clipbot/channels.yaml`.
 
 ```bash
 .venv/bin/python -m clipbot check     # verify ffmpeg, Ollama, whisper, voices and keys
