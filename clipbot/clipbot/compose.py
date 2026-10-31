@@ -118,7 +118,8 @@ def _shots(workdir: Path, starts: list[float], assets: list, duration: float, w:
 def build(cfg: dict, workdir: Path, *, duration: float, layout: str = "full", voice_wav: Path | None = None,
           words: list[dict] | None = None, starts: list[float] | None = None, assets: list | None = None,
           background: Path | None = None, hook_text: str = "", card: Path | None = None,
-          card_until: float | None = None, caption_style: str = "karaoke", music: bool = True) -> Path:
+          card_until: float | None = None, caption_style: str = "karaoke", music: bool = True,
+          progress_bar: bool = True) -> Path:
     words, starts, assets = words or [], starts or [0.0], assets or [None]
     style = {"font": random.choice(cfg["captions"]["fonts"]), "color": random.choice(cfg["captions"]["highlight_colors"]),
              "kind": caption_style, "y": H // 2}
@@ -168,6 +169,14 @@ def build(cfg: dict, workdir: Path, *, duration: float, layout: str = "full", vo
 
     _captions(cfg, workdir / "subs.ass", words, "" if (card or layout != "full") else hook_text,
               min(2.5, duration), style)
+    if progress_bar:
+        # thin bar along the top that fills as the video plays (slides in from the left)
+        bar = f"&H{style['color'][-6:]}"
+        rgb = f"0x{bar[-2:]}{bar[-4:-2]}{bar[-6:-4]}"  # ASS is BBGGRR, ffmpeg wants RRGGBB
+        vf.append(f"color=c={rgb}:s={W}x14:r={FPS}[barsrc]")
+        vf.append(f"[{last}]drawbox=x=0:y=0:w=iw:h=14:color=black@0.55:t=fill[track]")
+        vf.append(f"[track][barsrc]overlay=x='-W+W*t/{duration:.2f}':y=0:shortest=1[barred]")
+        last = "barred"
     vf.append(f"[{last}]ass=subs.ass[v]")
 
     audio, mix = [], []

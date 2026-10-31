@@ -187,7 +187,11 @@ def _background(cfg: dict) -> Path:
     return random.choice(own + pool)
 
 
-def produce(cfg: dict, state, niche: dict, fmt: str, slot: datetime, item: dict) -> str | None:
+def produce(cfg: dict, state, niche: dict, fmt: str, slot: datetime, item: dict, tag: str = "") -> str | None:
+    def step(msg: str) -> None:
+        log.info("%s %s", tag, msg)
+
+    step(f"writing script: {item['topic'][:70]}")
     script = writer.factcard(cfg, niche, item["text"]) if fmt == "factcard" else \
         writer.script(cfg, niche, fmt, f"{item.get('handle', '')}: {item['text']}" if fmt == "tweet" else item["text"])
     if not script:
@@ -204,6 +208,7 @@ def produce(cfg: dict, state, niche: dict, fmt: str, slot: datetime, item: dict)
         voice_name, wav, words, line_starts = "", None, [], [0.0]
         if speak:
             voice_name = _pick_voice(state, niche)
+            step(f"recording voiceover ({voice_name})")
             wav = voice.synth(cfg, " ".join(texts), voice_name, work / "voice.wav", niche.get("speed"))
             duration = probe(wav)["duration"] + 0.6
             words = align.align(cfg, wav, " ".join(texts).split(), duration)
@@ -230,6 +235,7 @@ def produce(cfg: dict, state, niche: dict, fmt: str, slot: datetime, item: dict)
                     lead = broll.commons_file(item["image"], cache)
                 except Exception as exc:
                     log.warning("lead image lookup failed: %s", exc)
+            step(f"finding visuals for {len(script['lines'])} shots")
             for n, line in enumerate(script["lines"]):
                 query = line["visual"] if line["visual"] and line["visual"].lower() != "card" else item["topic"]
                 asset = lead if n == 0 and lead else broll.find(cfg, subject, query, used)
@@ -255,7 +261,9 @@ def produce(cfg: dict, state, niche: dict, fmt: str, slot: datetime, item: dict)
             card = cards.fact_block(work / "card.png", script["caption"], dark=niche.get("dark_card", True))
             assets = [item["asset"]]
 
-        compose.build(cfg, work, duration=duration, layout=layout, voice_wav=wav, words=words, starts=starts,
+        step(f"rendering {duration:.0f}s video ({layout} layout)")
+        compose.build(cfg, work, progress_bar=niche.get("progress_bar", cfg["captions"].get("progress_bar", True)),
+                      duration=duration, layout=layout, voice_wav=wav, words=words, starts=starts,
                       assets=assets, background=background, hook_text=script.get("hook_text", ""), card=card,
                       card_until=card_until, caption_style=caption_style)
         (work / "card.png").unlink(missing_ok=True)
@@ -310,7 +318,8 @@ def fill_channel(cfg: dict, subs: int | None = None) -> int:
     slots = open_slots(cfg, state)
     log.info("[%s] %d open slot(s) in the next %s days", cfg["_channel"], len(slots), cfg["schedule"]["buffer_days"])
     made = failures = 0
-    for slot in slots:
+    for n_slot, slot in enumerate(slots, 1):
+        tag = f"[{cfg['_channel']} {n_slot}/{len(slots)}]"
         if failures >= 3:
             log.error("[%s] 3 failures in a row; stopping (is Ollama running? `clipbot check`)", cfg["_channel"])
             break
@@ -323,12 +332,12 @@ def fill_channel(cfg: dict, subs: int | None = None) -> int:
         if niche["format"] != "post" and not tweeted and _inbox_posts(cfg):
             item = _post_material(cfg, state, {**niche, "posts": []})
             if item:
-                folder = produce(cfg, state, niche, "tweet", slot, item)
+                folder = produce(cfg, state, niche, "tweet", slot, item, tag)
         if folder is None:
             item = MATERIAL[niche["format"]](cfg, state, niche)
             if item:
                 fmt = "tweet" if niche["format"] == "post" else niche["format"]
-                folder = produce(cfg, state, niche, fmt, slot, item)
+                folder = produce(cfg, state, niche, fmt, slot, item, tag)
             else:
                 niches.strike(cfg, state, niche, subs)
         if folder:

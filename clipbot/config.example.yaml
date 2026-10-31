@@ -112,6 +112,7 @@ voices:
 captions:
   fonts: ["Poppins ExtraBold", "Anton", "DejaVu Sans"]   # install.sh fetches Poppins + Anton
   size: 86
+  progress_bar: true             # thin bar across the top that fills as the Short plays
   highlight_colors: ["&H0000F0FF", "&H0000FF7F", "&H00FFD200", "&H004080FF"]  # &HBBGGRR
 
 # Niche auto-switching. Views are only counted once a video is 72h old.
