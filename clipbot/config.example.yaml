@@ -1,6 +1,10 @@
 # clipbot configuration — copy to config.yaml and edit.
 # All paths support ~ expansion.
 
+# CPU cores the bot may use (Ollama, Whisper, ffmpeg). 4 = full speed.
+# Drop to 2 if the Pi reboots under load (weak power supply), at about half the speed.
+max_threads: 4
+
 paths:
   inbox: ~/clipbot/inbox          # drop your own long videos here
   work: ~/clipbot/work            # downloads, transcripts, temp files, state.db

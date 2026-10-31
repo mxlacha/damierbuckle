@@ -19,6 +19,12 @@ from .render import AUDIO_EXTS, _ass_text, _ts, probe
 log = logging.getLogger(__name__)
 W, H, FPS = 1080, 1920, 30
 ENC = ["-c:v", "libx264", "-preset", "veryfast", "-crf", "22", "-pix_fmt", "yuv420p"]
+
+
+def configure(cfg: dict) -> None:
+    """Cap encoder threads (lower = less power draw on a weak supply)."""
+    global ENC
+    ENC = [*ENC[:8], "-threads", str(int(cfg.get("max_threads", 4)))]
 PANEL = {"split": (1000, 600, 40, 170)}      # w, h, x, y
 
 

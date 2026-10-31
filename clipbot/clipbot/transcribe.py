@@ -18,7 +18,7 @@ def _get_model(cfg: dict):
         w = cfg["whisper"]
         log.info("loading whisper model %s", w["model"])
         _model = WhisperModel(
-            w["model"], device="cpu", compute_type=w["compute_type"], cpu_threads=int(w["threads"])
+            w["model"], device="cpu", compute_type=w["compute_type"], cpu_threads=min(int(w["threads"]), int(cfg.get("max_threads", 4)))
         )
     return _model
 

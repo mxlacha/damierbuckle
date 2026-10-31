@@ -341,6 +341,7 @@ def fill_channel(cfg: dict, subs: int | None = None) -> int:
 
 
 def fill(cfg: dict, subs: dict | None = None) -> int:
+    compose.configure(cfg)
     return sum(fill_channel(view, (subs or {}).get(view["_channel"])) for view in channels.views(cfg))
 
 
