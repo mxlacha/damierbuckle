@@ -24,7 +24,7 @@ llm:
   provider: ollama
   # Google Gemini (free key: aistudio.google.com → Get API key)
   base_url: https://generativelanguage.googleapis.com/v1beta/openai/
-  model: gemini-2.5-flash
+  model: gemini-flash-latest      # alias for Google's current Flash model
   # Groq instead (free key: console.groq.com): base_url https://api.groq.com/openai/v1, model openai/gpt-oss-120b
   api_key: ""
 

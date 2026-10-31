@@ -53,7 +53,8 @@ def _cloud(cfg: dict, system: str, user: str, temperature: float) -> dict:
     if resp.status_code == 400 and "response_format" in resp.text:  # provider without JSON mode
         body.pop("response_format")
         resp = requests.post(url, json=body, headers=headers, timeout=120)
-    resp.raise_for_status()
+    if not resp.ok:  # surface the provider's reason (e.g. unknown model) instead of a bare status code
+        raise requests.HTTPError(f"{resp.status_code} from {llm['base_url']}: {resp.text[:300]}", response=resp)
     return _parse_json(resp.json()["choices"][0]["message"]["content"])
 
 
@@ -64,7 +65,7 @@ def _chat(cfg: dict, system: str, user: str, model: str | None = None, temperatu
         try:
             return _cloud(cfg, system, user, o["temperature"] if temperature is None else temperature)
         except (requests.RequestException, json.JSONDecodeError, KeyError, IndexError) as exc:
-            log.warning("cloud LLM failed (%s); falling back to Ollama on the Pi", str(exc)[:200])
+            log.warning("cloud LLM failed (%s); falling back to Ollama on the Pi", str(exc)[:400])
     resp = requests.post(
         f"{o['host'].rstrip('/')}/api/chat",
         json={
