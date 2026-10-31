@@ -42,20 +42,29 @@ def _parse_json(text: str) -> dict:
 
 
 def _cloud(cfg: dict, system: str, user: str, temperature: float) -> dict:
-    """Any OpenAI-compatible API (Gemini, Groq, OpenRouter...): seconds instead of minutes per script."""
+    """Any OpenAI-compatible API (Gemini, Groq, OpenRouter...): seconds instead of minutes per script.
+    `model` may be a list: busy (503) or rate-limited (429) models are skipped for the next one."""
     llm = cfg["llm"]
-    body = {"model": llm["model"], "temperature": temperature,
-            "messages": [{"role": "system", "content": system}, {"role": "user", "content": user}],
-            "response_format": {"type": "json_object"}}
+    models = llm["model"] if isinstance(llm["model"], list) else [llm["model"]]
     url = f"{llm['base_url'].rstrip('/')}/chat/completions"
     headers = {"Authorization": f"Bearer {llm['api_key']}"}
-    resp = requests.post(url, json=body, headers=headers, timeout=120)
-    if resp.status_code == 400 and "response_format" in resp.text:  # provider without JSON mode
-        body.pop("response_format")
+    error = None
+    for model in models:
+        body = {"model": model, "temperature": temperature,
+                "messages": [{"role": "system", "content": system}, {"role": "user", "content": user}],
+                "response_format": {"type": "json_object"}}
         resp = requests.post(url, json=body, headers=headers, timeout=120)
-    if not resp.ok:  # surface the provider's reason (e.g. unknown model) instead of a bare status code
-        raise requests.HTTPError(f"{resp.status_code} from {llm['base_url']}: {resp.text[:300]}", response=resp)
-    return _parse_json(resp.json()["choices"][0]["message"]["content"])
+        if resp.status_code == 400 and "response_format" in resp.text:  # provider without JSON mode
+            body.pop("response_format")
+            resp = requests.post(url, json=body, headers=headers, timeout=120)
+        if resp.ok:
+            return _parse_json(resp.json()["choices"][0]["message"]["content"])
+        # surface the provider's reason (busy, unknown model, quota) instead of a bare status code
+        error = requests.HTTPError(f"{resp.status_code} from {model}: {resp.text[:300]}", response=resp)
+        if resp.status_code not in (404, 429, 500, 503):
+            break
+        log.info("cloud model %s unavailable (%s), trying the next one", model, resp.status_code)
+    raise error
 
 
 def _chat(cfg: dict, system: str, user: str, model: str | None = None, temperature: float | None = None) -> dict:
