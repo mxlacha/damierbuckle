@@ -15,10 +15,16 @@ _kokoro = None
 def _get_kokoro(cfg: dict):
     global _kokoro
     if _kokoro is None:
+        import onnxruntime as rt
         from kokoro_onnx import Kokoro
 
         v = cfg["voices"]
-        _kokoro = Kokoro(v["kokoro_model"], v["kokoro_voices"])
+        # cap threads like everything else (onnxruntime otherwise grabs every core)
+        opts = rt.SessionOptions()
+        opts.intra_op_num_threads = int(cfg.get("max_threads", 4))
+        opts.inter_op_num_threads = 1
+        session = rt.InferenceSession(v["kokoro_model"], sess_options=opts, providers=["CPUExecutionProvider"])
+        _kokoro = Kokoro.from_session(session, v["kokoro_voices"])
     return _kokoro
 
 
