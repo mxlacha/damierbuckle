@@ -6,7 +6,6 @@ import colorsys
 import hashlib
 import shutil
 import subprocess
-import textwrap
 from pathlib import Path
 
 from PIL import Image, ImageDraw, ImageFont
@@ -37,10 +36,18 @@ def text_card(out: Path, name: str, handle: str, body: str, label: str = "", dar
     fg, sub, bg = ((240, 240, 240), (140, 145, 150), (0, 0, 0, 250)) if dark else \
         ((15, 15, 15), (110, 110, 110), (255, 255, 255, 245))
     head_font, small_font, body_font = _font(True, 38), _font(False, 30), _font(True, 46)
-    lines = []
-    for para in body.split("\n"):
-        lines += textwrap.wrap(para, 34) or [""]
     pad, line_h = 44, 60
+    lines = []
+    for para in body.split("\n"):  # wrap by rendered width so bold text never spills off the card
+        cur = ""
+        for word in para.split():
+            test = f"{cur} {word}".strip()
+            if cur and body_font.getlength(test) > WIDTH - 2 * pad:
+                lines.append(cur)
+                cur = word
+            else:
+                cur = test
+        lines.append(cur)
     height = pad + 96 + 28 + line_h * len(lines) + (54 if label else 0) + pad
     img = Image.new("RGBA", (WIDTH, height), (0, 0, 0, 0))
     d = ImageDraw.Draw(img)
@@ -78,7 +85,7 @@ def screenshot_card(src: Path, out: Path) -> Path:
     return out
 
 
-def fact_block(out: Path, text: str, dark: bool = True, width: int = 1000, size: int = 50) -> Path:
+def fact_block(out: Path, text: str, dark: bool = True, width: int = 1000, size: int = 58) -> Path:
     """Caption block for fact cards. **phrases** are highlighted (yellow on dark, like the niche leaders)."""
     font = _font(True, size) if dark else _font(False, size)
     fg, hi, bg = ((255, 255, 255), (255, 226, 70), (0, 0, 0)) if dark else ((20, 20, 20), (20, 20, 20), (255, 255, 255))

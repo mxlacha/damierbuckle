@@ -63,11 +63,16 @@ def _chunks(words: list[dict], size: int) -> list[list[dict]]:
     return chunks + ([cur] if cur else [])
 
 
+def _fit(word: str, size: int, width: int = W - 120) -> int:
+    """Shrink long words so a single huge caption word never runs off screen (~0.62em per glyph)."""
+    return max(60, min(size, int(width / (0.62 * max(len(word), 1)))))
+
+
 def _captions(cfg: dict, path: Path, words: list[dict], hook_text: str, hook_until: float, style: dict) -> None:
     c = cfg["captions"]
     font, kind, y = style["font"], style["kind"], style["y"]
     hi = f"&H{style['color'][-6:]}&"  # config colours are &HAABBGGRR; override tags want &HBBGGRR&
-    size = int(c["size"] * (1.8 if kind == "word" else 1))
+    size = int(c["size"] * (2.4 if kind == "word" else 1))
     lines = [
         "[Script Info]", "ScriptType: v4.00+", f"PlayResX: {W}", f"PlayResY: {H}", "WrapStyle: 0", "",
         "[V4+ Styles]",
@@ -89,7 +94,7 @@ def _captions(cfg: dict, path: Path, words: list[dict], hook_text: str, hook_unt
             end = words[i + 1]["start"] if i + 1 < len(words) else w["end"] + 0.4
             text = _ass_text(w["word"]).strip(".,!?;:\"")
             lines.append(f"Dialogue: 0,{_ts(w['start'])},{_ts(max(end, w['start'] + 0.05))},Cap,,0,0,0,,"
-                         f"{{{pos}\\fscx70\\fscy70\\t(0,70,\\fscx100\\fscy100)}}{text}")
+                         f"{{{pos}\\fs{_fit(text, size)}\\fscx70\\fscy70\\t(0,70,\\fscx100\\fscy100)}}{text}")
     elif kind == "karaoke":
         chunks = _chunks(words, 3)
         for n, chunk in enumerate(chunks):
@@ -141,7 +146,7 @@ def build(cfg: dict, workdir: Path, *, duration: float, layout: str = "full", vo
         base = add("-i", str(clip))
         block = add("-i", card.name)
         blk_h = _png_height(workdir / card.name)
-        top = max(160, (H - blk_h - 760) // 2 - 60)
+        top = 300  # upper third, like the fact-card accounts that are working
         vf.append(f"[{base}:v]split[a][b];[a]scale={W}:{H}:force_original_aspect_ratio=increase,crop={W}:{H},"
                   f"boxblur=30:3,eq=brightness=-0.12[bgx];[bgx][{block}:v]overlay=(W-w)/2:{top}[bg2];"
                   f"[bg2][b]overlay=(W-w)/2:{top + blk_h}[base]")
