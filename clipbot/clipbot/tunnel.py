@@ -37,6 +37,7 @@ def _proj(x: float, y: float, z: float, cx: float, cy: float) -> tuple[float, fl
 def render(out: Path, seconds: float = 90, seed: int | None = None) -> Path:
     rnd = random.Random(seed)
     hue, sat = rnd.choice(PALETTES)
+    base_hue = hue
     hue += rnd.uniform(-0.03, 0.03)
     base_val = 0.95 if sat == 0 else 0.75
     speed = rnd.uniform(2.2, 3.2)                     # units per second
@@ -48,6 +49,10 @@ def render(out: Path, seconds: float = 90, seed: int | None = None) -> Path:
     while z < length:
         blocks.append((rnd.uniform(-0.6, 0.6), rnd.uniform(0.0, 0.7), z, rnd.uniform(0.18, 0.35)))
         z += rnd.uniform(2.5, 5.0)
+    names = {0.30: "green", 0.0: "red", 0.78: "purple", 0.08: "orange", 0.58: "blue"}
+    look = {"palette": "white" if sat == 0 else names.get(base_hue, "other"),
+            "speed": round(speed, 2), "blocks": cols}
+    out.with_suffix(".json").write_text(__import__("json").dumps(look))
     accent = _shade(hue + rnd.choice([0.0, 0.5]), 0.6 if sat else 0.0, 0.35)
 
     proc = subprocess.Popen(

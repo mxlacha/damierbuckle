@@ -100,8 +100,9 @@ def refresh(cfg: dict, state) -> int | None:
     for i in range(0, len(ids), 50):
         for item in _get("videos", a["api_key"], part="statistics", id=",".join(ids[i:i + 50])).get("items", []):
             s = item["statistics"]
-            state.x("UPDATE videos SET views=?, likes=?, checked=? WHERE yt_id=?",
-                    int(s.get("viewCount", 0)), int(s.get("likeCount", 0)), time.time(), item["id"])
+            state.x("UPDATE videos SET views=?, likes=?, comments=?, checked=? WHERE yt_id=?",
+                    int(s.get("viewCount", 0)), int(s.get("likeCount", 0)), int(s.get("commentCount", 0)),
+                    time.time(), item["id"])
     _deep(cfg, state)
     log.info("[%s] analytics: %d uploads, %d tracked, %s subs", cid, len(found), len(ids), subs)
     return subs
@@ -139,38 +140,82 @@ def _deep(cfg: dict, state) -> None:
 
 
 # ------------------------------------------------------------------ weekly report
+def _med(values: list) -> float | None:
+    values = [v for v in values if v is not None]
+    return round(statistics.median(values), 3) if values else None
+
+
 def _agg(rows: list[dict], key: str) -> list[dict]:
     groups = defaultdict(list)
     for r in rows:
         groups[r.get(key)].append(r)
     out = []
     for value, items in groups.items():
-        views = [i["views"] for i in items]
-        ret = [i["retention"] for i in items if i.get("retention") is not None]
-        out.append({key: value, "videos": len(items), "median_views": statistics.median(views),
-                    "median_retention": round(statistics.median(ret), 1) if ret else None})
-    return sorted(out, key=lambda x: -x["median_views"])
+        out.append({key: value, "videos": len(items),
+                    "median_views": _med([i["views"] for i in items]),
+                    "median_retention": _med([i["retention"] for i in items]),
+                    "median_engagement": _med([i["engagement"] for i in items]),
+                    "median_rpm": _med([i["rpm"] for i in items])})
+    return sorted(out, key=lambda x: -(x["median_views"] or 0))
+
+
+def _ranks(xs: list[float]) -> list[float]:
+    order = sorted(range(len(xs)), key=lambda i: xs[i])
+    ranks = [0.0] * len(xs)
+    i = 0
+    while i < len(order):  # average ranks for ties
+        j = i
+        while j + 1 < len(order) and xs[order[j + 1]] == xs[order[i]]:
+            j += 1
+        for k in range(i, j + 1):
+            ranks[order[k]] = (i + j) / 2
+        i = j + 1
+    return ranks
+
+
+def spearman(pairs: list[tuple[float, float]]) -> float | None:
+    """Rank correlation (-1..1): does more of X go with more of Y? Robust to viral outliers."""
+    if len(pairs) < 8:
+        return None
+    rx, ry = _ranks([p[0] for p in pairs]), _ranks([p[1] for p in pairs])
+    mx, my = statistics.mean(rx), statistics.mean(ry)
+    cov = sum((a - mx) * (b - my) for a, b in zip(rx, ry))
+    var = (sum((a - mx) ** 2 for a in rx) * sum((b - my) ** 2 for b in ry)) ** 0.5
+    return round(cov / var, 2) if var else None
+
+
+NUMERIC = ("duration", "words", "speed", "hour", "title_len", "bg_speed")
+OUTCOMES = ("views", "retention", "engagement", "rpm")
+CATEGORIES = ("niche", "format", "voice", "energy", "length", "captions", "font", "background", "bg_palette",
+              "music", "hour", "weekday")
 
 
 def report(cfg: dict, state, niche_line: str) -> Path:
     """reports/<channel>.json + .md: what's working, broken down by every lever the bot controls."""
     cid = cfg["_channel"]
     rows = []
-    for folder, niche, fmt, title, views, likes, ret, avg, subs, rev, publish_at, meta in state.q(
-            "SELECT folder, niche, format, title, views, likes, retention, avg_dur, subs, revenue, publish_at, meta "
+    for folder, niche, fmt, title, views, likes, comments, ret, avg, subs, rev, publish_at, meta in state.q(
+            "SELECT folder, niche, format, title, views, likes, comments, retention, avg_dur, subs, revenue, "
+            "publish_at, meta "
             "FROM videos WHERE channel=? AND views IS NOT NULL ORDER BY publish_at DESC LIMIT 300", cid):
         style = json.loads(meta or "{}")
         dur = style.get("duration") or 0
-        rows.append({"title": title, "niche": niche.split("/", 1)[-1], "format": fmt, "published": publish_at,
-                     "views": views, "likes": likes, "retention": ret, "avg_view_s": avg, "subs": subs,
+        rows.append({**{k: style.get(k) for k in ("layout", "captions", "voice", "hour", "weekday", "hook", "speed",
+                                                   "energy", "font", "background", "bg_palette", "bg_speed",
+                                                   "music", "words", "title_len", "duration")},
+                     "title": title, "niche": niche.split("/", 1)[-1], "format": fmt, "published": publish_at,
+                     "views": views, "likes": likes, "comments": comments, "retention": ret, "avg_view_s": avg,
+                     "subs": subs,
+                     # engagement = (likes + comments) per view; rpm = estimated revenue per 1,000 views
+                     "engagement": round(((likes or 0) + (comments or 0)) / views, 4) if views else None,
                      "rpm": round(rev / views * 1000, 3) if rev and views else None,
-                     "layout": style.get("layout"), "captions": style.get("captions"), "voice": style.get("voice"),
-                     "hour": style.get("hour"), "length": f"{int(dur // 15) * 15}-{int(dur // 15) * 15 + 15}s",
-                     "hook": style.get("hook")})
+                     "length": f"{int(dur // 15) * 15}-{int(dur // 15) * 15 + 15}s"})
     niches = [dict(zip(("niche", "status", "strikes", "best_median"), r)) for r in
               state.q("SELECT name, status, strikes, best_median FROM niches WHERE name LIKE ?", f"{cid}/%")]
     data = {"channel": cid, "generated": time.strftime("%Y-%m-%d %H:%M"), "decision": niche_line, "niches": niches,
-            "by": {k: _agg(rows, k) for k in ("niche", "format", "captions", "voice", "hour", "length")} if rows else {},
+            "by": {k: _agg(rows, k) for k in CATEGORIES} if rows else {},
+            "correlations": {x: {y: spearman([(r[x], r[y]) for r in rows if r.get(x) is not None
+                                              and r.get(y) is not None]) for y in OUTCOMES} for x in NUMERIC},
             "top": sorted(rows, key=lambda r: -r["views"])[:10], "bottom": sorted(rows, key=lambda r: r["views"])[:5],
             "videos": rows}
     REPORTS.mkdir(exist_ok=True)
@@ -179,9 +224,15 @@ def report(cfg: dict, state, niche_line: str) -> Path:
     md = [f"# {cid} — {data['generated']}", "", f"**Niche decision:** {niche_line}", "",
           "| niche | status | strikes | best median |", "|---|---|---|---|"]
     md += [f"| {n['niche'].split('/', 1)[-1]} | {n['status']} | {n['strikes']} | {n['best_median']:.0f} |" for n in niches]
+    md += ["", "## Correlations (Spearman, -1..1; blank = fewer than 8 videos)", "",
+           "| lever | " + " | ".join(OUTCOMES) + " |", "|---" * (len(OUTCOMES) + 1) + "|"]
+    md += [f"| {x} | " + " | ".join("" if c is None else f"{c:+.2f}" for c in ys.values()) + " |"
+           for x, ys in data["correlations"].items()]
     for key, groups in data["by"].items():
-        md += ["", f"## By {key}", "", f"| {key} | videos | median views | median retention % |", "|---|---|---|---|"]
-        md += [f"| {g[key]} | {g['videos']} | {g['median_views']:,.0f} | {g['median_retention']} |" for g in groups]
+        md += ["", f"## By {key}", "", f"| {key} | videos | median views | retention % | engagement | RPM $ |",
+               "|---|---|---|---|---|---|"]
+        md += [f"| {g[key]} | {g['videos']} | {g['median_views'] or 0:,.0f} | {g['median_retention']} | "
+               f"{g['median_engagement']} | {g['median_rpm']} |" for g in groups]
     md += ["", "## Top 10", "", "| views | ret % | rpm | format | hook |", "|---|---|---|---|---|"]
     md += [f"| {r['views']:,} | {r['retention']} | {r['rpm']} | {r['format']} | {(r['hook'] or '')[:70]} |"
            for r in data["top"]]

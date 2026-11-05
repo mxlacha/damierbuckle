@@ -195,7 +195,9 @@ def build(cfg: dict, workdir: Path, *, duration: float, layout: str = "full", vo
     music_dir = Path(cfg["audio"].get("music_dir") or "/nonexistent")
     tracks = [p for p in music_dir.glob("*") if p.suffix.lower() in AUDIO_EXTS] if music and music_dir.is_dir() else []
     if tracks:
-        mi = add("-stream_loop", "-1", "-i", str(random.choice(tracks)))
+        track = random.choice(tracks)
+        style["music"] = track.stem
+        mi = add("-stream_loop", "-1", "-i", str(track))
         vol = cfg["audio"]["music_volume"] if voice_wav is not None else 0.7  # music-led formats
         audio.append(f"[{mi}:a]aformat=sample_rates=48000:channel_layouts=stereo,"
                      f"afade=t=out:st={max(duration - 1.5, 0):.2f}:d=1.5,volume={vol}[mus]")
@@ -210,7 +212,8 @@ def build(cfg: dict, workdir: Path, *, duration: float, layout: str = "full", vo
 
     for f in [*workdir.glob("seg*.mp4"), workdir / "segments.txt", workdir / "shots.mp4", workdir / "subs.ass"]:
         f.unlink(missing_ok=True)
-    return workdir / "video.mp4"
+    return {"font": style["font"], "caption_color": style["color"], "music": style.get("music"),
+            "progress_bar": progress_bar}
 
 
 def _png_height(path: Path) -> int:

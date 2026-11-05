@@ -272,7 +272,7 @@ def produce(cfg: dict, state, niche: dict, fmt: str, slot: datetime, item: dict,
             assets = [item["asset"]]
 
         step(f"rendering {duration:.0f}s video ({layout} layout)")
-        compose.build(cfg, work, progress_bar=niche.get("progress_bar", cfg["captions"].get("progress_bar", True)),
+        choices = compose.build(cfg, work, progress_bar=niche.get("progress_bar", cfg["captions"].get("progress_bar", True)),
                       duration=duration, layout=layout, voice_wav=wav, words=words, starts=starts,
                       assets=assets, background=background, hook_text=script.get("hook_text", ""), card=card,
                       card_until=card_until, caption_style=caption_style)
@@ -292,9 +292,16 @@ def produce(cfg: dict, state, niche: dict, fmt: str, slot: datetime, item: dict,
             desc.append("Credits: " + "; ".join(credits))
         hashtags = list(niche.get("hashtags") or []) + list(cfg["channel"].get("hashtags") or [])
         desc.append(" ".join(dict.fromkeys(hashtags)))
+        delivery = voice.style_for(cfg, voice_name, niche.get("speed")) if voice_name else {}
+        bg_look = {}
+        if background is not None and background.with_suffix(".json").exists():
+            bg_look = json.loads(background.with_suffix(".json").read_text())
         style = {"layout": layout, "captions": caption_style, "voice": voice_name, "duration": round(duration, 1),
-                 "words": len(" ".join(texts).split()), "hour": local.hour, "format": fmt,
-                 "hook": texts[0] if texts else ""}
+                 "words": len(" ".join(texts).split()), "hour": local.hour, "weekday": local.strftime("%a"),
+                 "format": fmt, "hook": texts[0] if texts else "", "title_len": len(script["title"]),
+                 "speed": delivery.get("speed"), "energy": delivery.get("energy"),
+                 "background": background.stem if background is not None else ("b-roll" if layout == "full" else None),
+                 "bg_palette": bg_look.get("palette"), "bg_speed": bg_look.get("speed"), **(choices or {})}
         meta = {
             "title": script["title"], "description": "\n\n".join(d for d in desc if d), "tags": script["tags"],
             "publish_local": f"{local:%Y-%m-%d %H:%M}", "publish_utc": slot.strftime(ISO),

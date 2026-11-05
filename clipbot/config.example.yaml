@@ -130,6 +130,9 @@ voices:
   kokoro_model: ~/clipbot/voices/kokoro-v1.0.onnx
   kokoro_voices: ~/clipbot/voices/voices-v1.0.bin
   speed: 1.1
+  # per-voice delivery; overrides the niche speed for that voice. energy = brighter, punchier processing
+  styles:
+    am_puck: {speed: 1.25, energy: true}     # the younger-sounding voice: more hype
 
 captions:
   fonts: ["Poppins ExtraBold", "Anton", "DejaVu Sans"]   # install.sh fetches Poppins + Anton

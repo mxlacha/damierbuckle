@@ -37,6 +37,10 @@ Setup for the loop:
 - **Views:** put a Data API key in `config.yaml → analytics.api_key` and each account's `youtube_channel_id` in `channels.yaml`.
 - **Retention and RPM:** run `.venv/bin/python -m clipbot auth-analytics <channel>` once per account, signed in as that channel's owner. This is read-only (`yt-analytics.readonly` and `yt-analytics-monetary.readonly` scopes); nothing can upload or edit.
 
+### What gets tracked
+
+Every video records its levers in the database: format, niche, voice, speed, energy processing, length, word count, caption style and font, background (and its palette), music track, title length, and posting hour and weekday. The nightly report (`reports/<channel>.md` and `.json`) joins those with views, retention, engagement ((likes + comments) / views) and RPM. It shows each lever two ways: a median table per option (e.g. Anton vs Poppins, green vs red corridor), and Spearman rank correlations for the numeric ones, which outlier viral videos can't skew. Fonts, caption colors, backgrounds and music are picked at random per video, so every week is a small experiment. The weekly review locks in what wins.
+
 ### Weekly upload routine (YouTube Studio, by hand)
 
 Uploading through Studio yourself keeps the channel a normal creator account: no API project, no automation flags.

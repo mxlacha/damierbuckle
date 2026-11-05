@@ -31,7 +31,7 @@ class State:
         )
         # columns added after the first release
         for table, column in (("videos", "channel TEXT"), ("videos", "meta TEXT"), ("videos", "retention REAL"),
-                              ("videos", "avg_dur REAL"), ("videos", "subs INTEGER"), ("videos", "revenue REAL")):
+                              ("videos", "avg_dur REAL"), ("videos", "subs INTEGER"), ("videos", "revenue REAL"), ("videos", "comments INTEGER")):
             try:
                 self.db.execute(f"ALTER TABLE {table} ADD COLUMN {column}")
             except sqlite3.OperationalError:

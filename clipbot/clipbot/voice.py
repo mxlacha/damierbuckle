@@ -39,6 +39,26 @@ def _write_wav(path: Path, samples, rate: int) -> None:
         w.writeframes(pcm.tobytes())
 
 
+def style_for(cfg: dict, voice: str, niche_speed: float | None) -> dict:
+    """Per-voice delivery from voices.styles, e.g. {am_puck: {speed: 1.25, energy: true}}."""
+    style = (cfg["voices"].get("styles") or {}).get(voice, {})
+    return {"speed": float(style.get("speed") or niche_speed or cfg["voices"]["speed"]),
+            "energy": bool(style.get("energy", False))}
+
+
+def energize(wav: Path) -> None:
+    """Brighter, punchier delivery: +4% pitch (tempo-corrected so caption timings don't move),
+    compression for a 'leaning in' feel, and a presence lift around 3 kHz."""
+    import subprocess
+
+    out = wav.with_name(wav.stem + "_e.wav")
+    subprocess.run(["ffmpeg", "-y", "-hide_banner", "-loglevel", "error", "-i", str(wav), "-af",
+                    "asetrate=24000*1.04,aresample=24000,atempo=0.961538,"
+                    "acompressor=threshold=-20dB:ratio=3:attack=5:release=60:makeup=2,"
+                    "equalizer=f=3200:t=q:w=1.2:g=3,alimiter=limit=0.95", str(out)], check=True)
+    out.replace(wav)
+
+
 def synth_lines(cfg: dict, lines: list[str], voice: str, out_wav: Path, speed: float | None = None,
                 pause: float = 0.22) -> tuple[Path, list[dict]] | None:
     """Kokoro one line at a time: exact line boundaries, words spread by length inside each line.
@@ -52,7 +72,7 @@ def synth_lines(cfg: dict, lines: list[str], voice: str, out_wav: Path, speed: f
         kokoro = _get_kokoro(cfg)
         chunks, words, t, rate = [], [], 0.0, 24000
         for line in lines:
-            samples, rate = kokoro.create(line, voice=voice, speed=float(speed or v["speed"]), lang="en-us")
+            samples, rate = kokoro.create(line, voice=voice, speed=style_for(cfg, voice, speed)["speed"], lang="en-us")
             dur = len(samples) / rate
             tokens = line.split()
             weights = [len(w) + 1 for w in tokens]
@@ -64,6 +84,8 @@ def synth_lines(cfg: dict, lines: list[str], voice: str, out_wav: Path, speed: f
             chunks += [samples, np.zeros(int(pause * rate), dtype=samples.dtype)]
             t += dur + pause
         _write_wav(out_wav, np.concatenate(chunks), rate)
+        if style_for(cfg, voice, speed)["energy"]:
+            energize(out_wav)
         return out_wav, words
     except Exception as exc:
         log.warning("kokoro line-by-line failed (%s); using whisper timing", exc)
