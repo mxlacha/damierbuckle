@@ -1,0 +1,12 @@
+[Unit]
+Description=clipbot: find clips, add text + audio, drop them in the ready folder
+After=network-online.target ollama.service
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+User=@USER@
+WorkingDirectory=@DIR@
+ExecStart=@DIR@/.venv/bin/python -m clipbot make
+Nice=10
+TimeoutStartSec=6h

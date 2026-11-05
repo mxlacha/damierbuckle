@@ -1,0 +1,159 @@
+# clipbot configuration — copy to config.yaml and edit.
+# All paths support ~ expansion.
+
+# CPU cores the bot may use (Ollama, Whisper, ffmpeg). 4 = full speed.
+# Drop to 2 if the Pi reboots under load (weak power supply), at about half the speed.
+max_threads: 4
+
+paths:
+  inbox: ~/clipbot/inbox          # drop your own long videos here
+  work: ~/clipbot/work            # downloads, transcripts, temp files, state.db
+  ready: ~/clipbot/ready          # finished clips land here (one folder per clip)
+  uploaded: ~/clipbot/uploaded    # clips are moved here after a successful upload
+
+# Channel identity — this is fed to the LLM so hooks/titles match your style.
+channel:
+  name: "Your Channel"            # shown on story cards
+  niche: "funny and surprising moments from tech and science talks"
+  voice: "punchy, curious, never clickbait-lying"
+  hashtags: ["#shorts"]
+
+# Where scripts get written; anything but "ollama" falls back to Ollama if it fails.
+#   ollama      — on the Pi (free, slow: minutes per script)
+#   claude-code — your Claude Pro/Max subscription via the Claude Code CLI on the Pi (no API credits;
+#                 counts toward your plan's usage limits). Install + log in once, see README.
+#   claude — Claude API, Haiku 5.5 by default (seconds per script, guaranteed-valid JSON, ~$0.10/$0.50 per M tokens)
+#   cloud  — any OpenAI-compatible free tier (Gemini, Groq) using base_url/model below
+llm:
+  provider: ollama
+  # provider: claude-code
+  # model: haiku                   # haiku uses the least of your plan's limits
+  # ollama_tasks: [filter, clips]  # high-volume jobs that always stay on the Pi
+  # provider: claude
+  # model: claude-haiku-5-5        # api_key: your sk-ant-... key (or set ANTHROPIC_API_KEY)
+  # effort: low
+  # Google Gemini (free key: aistudio.google.com → Get API key)
+  base_url: https://generativelanguage.googleapis.com/v1beta/openai/
+  # tried in order; a busy or rate-limited model falls through to the next
+  model: [gemini-flash-latest, gemini-3.8-flash, gemini-flash-lite-latest, gemini-2.5-flash]
+  # Groq instead (free key: console.groq.com): base_url https://api.groq.com/openai/v1, model openai/gpt-oss-120b
+  api_key: ""
+
+ollama:
+  host: http://localhost:11434
+  # Good Pi 5 choices: llama3.2:3b (8GB Pi), qwen2.5:3b, or llama3.2:1b (4GB Pi)
+  model: llama3.2:3b
+  num_ctx: 8192
+  temperature: 0.4
+  timeout_s: 900                  # the Pi is slow; be patient
+
+sources:
+  local_inbox: true
+  # URLs (channels, playlists, single videos) fetched with yt-dlp.
+  # Only list content you own or that is Creative Commons licensed —
+  # re-uploading other people's videos will get copyright strikes.
+  urls: []
+  #  - url: https://www.youtube.com/@YourOwnChannel/videos
+  #    own: true                  # skips the Creative Commons check
+  #  - url: https://www.youtube.com/results?search_query=talk&sp=EgIwAQ%253D%253D
+  #    own: false                 # must be CC-licensed or it is skipped
+  max_downloads_per_run: 2
+  max_video_minutes: 60
+  max_height: 1080
+
+whisper:
+  model: base.en                  # tiny.en is ~2x faster, base.en is more accurate
+  align_model: tiny.en            # caption timing only (the words are already known), so tiny is plenty
+  compute_type: int8
+  threads: 4
+
+clips:
+  per_video: 2                    # how many clips to cut from each source
+  min_seconds: 15
+  max_seconds: 58                 # keep under 60 for Shorts
+  min_score: 6                    # LLM "virality" score 1-10; below this is dropped
+  vertical: true                  # 1080x1920 with blurred background fill
+
+text:
+  font: DejaVu Sans               # any fontconfig family name installed on the Pi
+  hook_size: 78                   # big text at top of the frame
+  caption_size: 64                # word-by-word captions near the bottom
+  burn_captions: true
+  words_per_caption: 3
+
+audio:
+  narration: true                 # Piper TTS reads the LLM's voiceover line
+  piper_model: ~/clipbot/voices/en_US-lessac-medium.onnx
+  narration_delay_s: 0.3
+  duck_original_to: 0.25          # original audio volume while narration plays
+  music_dir: ~/clipbot/music      # optional: royalty-free mp3/wav files you own
+  music_volume: 0.10
+
+schedule:
+  timezone: America/Chicago
+  # Three Shorts a day. US-audience friendly: late morning, after school/work, evening.
+  publish_times: ["11:00", "16:00", "20:00"]
+  # How far ahead `clipbot stories` fills the calendar. 7 = upload once a week.
+  # Up to 30 works, but the niche switcher can only react to results after
+  # what's already scheduled has gone out, so shorter is smarter.
+  buffer_days: 7
+  max_uploads_per_run: 2              # only used by the optional API uploader
+
+youtube:
+  enabled: false                  # true = upload with scheduled publishAt
+  client_secrets: ~/clipbot/client_secret.json
+  token: ~/clipbot/token.json
+  category_id: "22"               # 22 = People & Blogs, 24 = Entertainment, 28 = Science & Tech
+  made_for_kids: false
+
+# ---------------------------------------------------------------- story engine
+stories:
+  niches_file: niches.yaml        # niche definitions (tracked in git; tuned from the weekly reports)
+  tweets_inbox: ~/clipbot/inbox/tweets   # drop tweet screenshots (.png) and/or .txt here
+  library: ~/clipbot/broll        # your own/licensed clips, one folder per tag: broll/f-15/*.mp4
+  backgrounds: ~/clipbot/backgrounds     # looping footage for Reddit-style stories (yours or licensed)
+  pixabay_api_key: ""             # free key from pixabay.com/api/docs — stock video b-roll
+  pexels_api_key: ""              # optional second stock source (Pexels key sign-ups may be paused)
+  commons: true                   # Wikimedia Commons photos (public domain / CC, auto-credited)
+  wikipedia_grounding: true       # history scripts may only use facts from the Wikipedia article
+  # words per script (Kokoro at speed 1.1 ≈ 2.8 words/sec)
+  words:
+    tweet: [70, 110]              # ~25-40 s
+    story: [110, 150]             # ~40-55 s
+    explainer: [90, 130]          # ~32-47 s, fast talkers win here
+    reddit: [160, 230]            # ~55-80 s
+    factcard: [35, 65]            # on-screen caption, read silently over music
+  generated_backgrounds: 8        # corridor loops kept in backgrounds/generated (90 s each)
+
+voices:
+  engine: kokoro                  # kokoro (natural) or piper (faster, flatter)
+  kokoro_model: ~/clipbot/voices/kokoro-v1.0.onnx
+  kokoro_voices: ~/clipbot/voices/voices-v1.0.bin
+  speed: 1.1
+  # per-voice delivery; overrides the niche speed for that voice. energy = brighter, punchier processing
+  styles:
+    am_puck: {speed: 1.25, energy: true}     # the younger-sounding voice: more hype
+
+captions:
+  fonts: ["Poppins ExtraBold", "Anton", "DejaVu Sans"]   # install.sh fetches Poppins + Anton
+  size: 86
+  progress_bar: true             # thin bar across the top that fills as the Short plays
+  highlight_colors: ["&H0000F0FF", "&H0000FF7F", "&H00FFD200", "&H004080FF"]  # &HBBGGRR
+
+# Niche auto-switching. Views are only counted once a video is 72h old.
+niche_rules:
+  trial_posts: 30                 # 10 days at 3/day before judging a niche
+  min_age_hours: 72
+  winner_median_views: 3000       # stick with the niche if median views >= this...
+  winner_max_views: 100000        # ...or any single video hits this...
+  winner_subs_gained: 500         # ...or the channel gained this many subs during the niche
+  dud_median_views: 800           # switch if median < this AND
+  dud_max_views: 10000            #   nothing broke this
+  # anything in between gets one extension of trial_posts, then switches if still not a winner
+  fatigue_ratio: 0.25             # a winner whose last 21 posts fall below 25% of its best stretch rotates out
+  dry_strikes: 3                  # topic generator failing this many times in a row = niche ran dry
+
+# Read-only stats (no uploading) so the niche switcher can see performance.
+analytics:
+  api_key: ""                     # Google Cloud API key with YouTube Data API v3 enabled
+  channel_id: ""                  # UC... (YouTube Studio → Settings → Channel → Advanced)

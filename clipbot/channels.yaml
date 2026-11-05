@@ -1,0 +1,31 @@
+# One entry per YouTube account. Each gets its own niche rotation, schedule, output folder
+# (~/clipbot/ready/<id>/) and report (reports/<id>.md). Niche names come from niches.yaml;
+# you can override any niche field inline, e.g. {name: tech_explained, words: [80, 110]}.
+#
+# youtube_channel_id is public (YouTube Studio → Settings → Channel → Advanced) and safe to commit.
+# Keys and tokens stay in config.yaml / ~/clipbot/tokens, which are not in git.
+
+channels:
+  - id: brainfacts
+    name: "Brain Facts"
+    youtube_channel_id: "UCkJXVXxHPX64IBxECBoKxOQ"
+    niches: [tech_explained, movie_aura, sports_explained]
+    schedule: {publish_times: ["11:00", "16:00", "20:00"]}
+
+  - id: posttakes
+    name: "Post Takes"
+    youtube_channel_id: ""
+    niches: [post_takes, workplace_stories]
+    schedule: {publish_times: ["10:30", "15:30", "19:30"]}
+    enabled: false
+  - id: cosmosclips
+    name: "Cosmos Clips"
+    youtube_channel_id: ""
+    niches: [space_facts]
+    schedule: {publish_times: ["12:00", "17:00", "21:00"]}
+    enabled: false
+  - id: afterburner
+    name: "Afterburner"
+    youtube_channel_id: ""
+    enabled: false              # flip on when you're ready for a 4th account
+    niches: [military_aviation, car_history, money_history]
