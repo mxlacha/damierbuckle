@@ -39,6 +39,37 @@ def _write_wav(path: Path, samples, rate: int) -> None:
         w.writeframes(pcm.tobytes())
 
 
+def synth_lines(cfg: dict, lines: list[str], voice: str, out_wav: Path, speed: float | None = None,
+                pause: float = 0.22) -> tuple[Path, list[dict]] | None:
+    """Kokoro one line at a time: exact line boundaries, words spread by length inside each line.
+    Gives caption timings without running Whisper. None if Kokoro isn't available."""
+    v = cfg["voices"]
+    if v.get("engine", "kokoro") != "kokoro" or not Path(v["kokoro_model"]).exists():
+        return None
+    import numpy as np
+
+    try:
+        kokoro = _get_kokoro(cfg)
+        chunks, words, t, rate = [], [], 0.0, 24000
+        for line in lines:
+            samples, rate = kokoro.create(line, voice=voice, speed=float(speed or v["speed"]), lang="en-us")
+            dur = len(samples) / rate
+            tokens = line.split()
+            weights = [len(w) + 1 for w in tokens]
+            pos = t
+            for w, weight in zip(tokens, weights):
+                span = dur * weight / sum(weights)
+                words.append({"word": w, "start": round(pos, 2), "end": round(pos + span, 2)})
+                pos += span
+            chunks += [samples, np.zeros(int(pause * rate), dtype=samples.dtype)]
+            t += dur + pause
+        _write_wav(out_wav, np.concatenate(chunks), rate)
+        return out_wav, words
+    except Exception as exc:
+        log.warning("kokoro line-by-line failed (%s); using whisper timing", exc)
+        return None
+
+
 def synth(cfg: dict, text: str, voice: str, out_wav: Path, speed: float | None = None) -> Path:
     v = cfg["voices"]
     if v.get("engine", "kokoro") == "kokoro" and Path(v["kokoro_model"]).exists():

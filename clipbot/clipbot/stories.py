@@ -214,9 +214,14 @@ def produce(cfg: dict, state, niche: dict, fmt: str, slot: datetime, item: dict,
         if speak:
             voice_name = _pick_voice(state, niche)
             step(f"recording voiceover ({voice_name})")
-            wav = voice.synth(cfg, " ".join(texts), voice_name, work / "voice.wav", niche.get("speed"))
-            duration = probe(wav)["duration"] + 0.6
-            words = align.align(cfg, wav, " ".join(texts).split(), duration)
+            timed = voice.synth_lines(cfg, texts, voice_name, work / "voice.wav", niche.get("speed"))
+            if timed:  # Kokoro: timings come free, no Whisper pass needed
+                wav, words = timed
+                duration = probe(wav)["duration"] + 0.6
+            else:
+                wav = voice.synth(cfg, " ".join(texts), voice_name, work / "voice.wav", niche.get("speed"))
+                duration = probe(wav)["duration"] + 0.6
+                words = align.align(cfg, wav, " ".join(texts).split(), duration)
             line_starts, i = [], 0
             for t in texts:
                 line_starts.append(0.0 if i == 0 else words[min(i, len(words) - 1)]["start"])
