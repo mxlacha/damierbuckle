@@ -1,0 +1,67 @@
+{
+ "channel": "brainfacts",
+ "generated": "2026-11-16 02:36",
+ "decision": "no active niche yet",
+ "niches": [
+  {
+   "niche": "brainfacts/tech_explained",
+   "status": "retired",
+   "strikes": 0,
+   "best_median": 0.0
+  },
+  {
+   "niche": "brainfacts/movie_aura",
+   "status": "retired",
+   "strikes": 0,
+   "best_median": 0.0
+  },
+  {
+   "niche": "brainfacts/sports_explained",
+   "status": "retired",
+   "strikes": 0,
+   "best_median": 0.0
+  }
+ ],
+ "by": {},
+ "correlations": {
+  "duration": {
+   "views": null,
+   "retention": null,
+   "engagement": null,
+   "rpm": null
+  },
+  "words": {
+   "views": null,
+   "retention": null,
+   "engagement": null,
+   "rpm": null
+  },
+  "speed": {
+   "views": null,
+   "retention": null,
+   "engagement": null,
+   "rpm": null
+  },
+  "hour": {
+   "views": null,
+   "retention": null,
+   "engagement": null,
+   "rpm": null
+  },
+  "title_len": {
+   "views": null,
+   "retention": null,
+   "engagement": null,
+   "rpm": null
+  },
+  "bg_speed": {
+   "views": null,
+   "retention": null,
+   "engagement": null,
+   "rpm": null
+  }
+ },
+ "top": [],
+ "bottom": [],
+ "videos": []
+}
