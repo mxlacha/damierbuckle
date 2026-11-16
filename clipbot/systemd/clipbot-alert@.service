@@ -1,0 +1,8 @@
+[Unit]
+Description=clipbot: push an alert to your phone when %i fails
+
+[Service]
+Type=oneshot
+User=@USER@
+WorkingDirectory=@DIR@
+ExecStart=@DIR@/.venv/bin/python -m clipbot alert %i

@@ -94,7 +94,8 @@ def _model(niche: dict) -> str | None:
     return niche.get("model")
 
 
-def ideas(cfg: dict, niche: dict, used: list[str], n: int = 8) -> list[str]:
+def ideas(cfg: dict, niche: dict, used: list[str], n: int = 8) -> list[str] | None:
+    """New topic ideas. None means the model couldn't be reached (not that the niche is out of ideas)."""
     reddit = niche["format"] == "reddit"
     prompt = (PREMISES if reddit else IDEAS).format(n=n, angle=niche["angle"], used="; ".join(used[-60:]) or "none")
     try:
@@ -102,7 +103,7 @@ def ideas(cfg: dict, niche: dict, used: list[str], n: int = 8) -> list[str]:
                      schema=_schema({"premises" if reddit else "topics": STRS}))
     except (requests.RequestException, json.JSONDecodeError, KeyError) as exc:
         log.warning("idea generation failed: %s", exc)
-        return []
+        return None
     items = data.get("premises" if reddit else "topics", []) if isinstance(data, dict) else []
     return [str(x).strip() for x in items if str(x).strip()]
 

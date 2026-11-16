@@ -91,16 +91,18 @@ BSKY = "https://public.api.bsky.app/xrpc"
 WHATS_HOT = "at://did:plc:z72i7hdynmk6r22z27h6tvur/app.bsky.feed.generator/whats-hot"
 
 
-def bluesky_posts(feeds: list[str] | None = None, min_likes: int = 500) -> list[dict]:
-    """Popular public text posts from Bluesky feeds (open API, no key)."""
-    out = []
-    for feed in feeds or [WHATS_HOT]:
+def bluesky_posts(feeds: list[str] | None = None, min_likes: int = 500) -> list[dict] | None:
+    """Popular public text posts from Bluesky feeds (open API, no key). None if every feed failed."""
+    out, failed = [], 0
+    feeds = feeds or [WHATS_HOT]
+    for feed in feeds:
         try:
             r = requests.get(f"{BSKY}/app.bsky.feed.getFeed", params={"feed": feed, "limit": 100},
                              headers=UA, timeout=30)
             r.raise_for_status()
         except requests.RequestException as exc:
             log.warning("bluesky feed failed: %s", exc)
+            failed += 1
             continue
         for entry in r.json().get("feed", []):
             post = entry.get("post", {})
@@ -116,4 +118,6 @@ def bluesky_posts(feeds: list[str] | None = None, min_likes: int = 500) -> list[
                         "name": author.get("displayName") or author.get("handle", ""),
                         "avatar": author.get("avatar", ""), "likes": post.get("likeCount", 0),
                         "url": f"https://bsky.app/profile/{author.get('handle')}/post/{rkey}"})
+    if failed == len(feeds):
+        return None
     return sorted(out, key=lambda p: -p["likes"])

@@ -2,6 +2,7 @@
 Description=clipbot: check stats, pick niche, fill the posting calendar with story Shorts
 After=network-online.target ollama.service
 Wants=network-online.target
+OnFailure=clipbot-alert@%n.service
 
 [Service]
 Type=oneshot

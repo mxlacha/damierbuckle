@@ -9,7 +9,7 @@ channels:
   - id: brainfacts
     name: "Brain Facts"
     youtube_channel_id: "UCkJXVXxHPX64IBxECBoKxOQ"
-    niches: [tech_explained, movie_aura, sports_explained]
+    niches: [tech_explained, science_explained, animals_explained, history_explained, movie_aura, sports_explained]
     schedule: {publish_times: ["11:00", "16:00", "20:00"]}
 
   - id: posttakes

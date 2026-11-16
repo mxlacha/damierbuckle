@@ -39,3 +39,10 @@ Known state and pitfalls:
 9. Always-on Claude Code: `claude remote-control` in `~/damierbuckle/clipbot`, kept alive in tmux and restarted at boot
    (`@reboot` crontab entry). Confirm the session appears in Max's Claude app.
 10. Samba share of `~/clipbot` so Max can grab videos for upload (`smb://creampi.local`).
+11. Monitoring: copy the updated units (`clipbot-alert@.service`, `clipbot-stories.service`, with @USER@/@DIR@
+    filled in as install.sh does) to /etc/systemd/system, `daemon-reload`; set `alerts.ntfy_topic` in config.yaml
+    (Max installs the ntfy app and subscribes); check with `.venv/bin/python -m clipbot health`.
+
+Hub rules (from ~/hub/CLAUDE.md, hard limits): never run nmcli con down/delete/modify, never restart or stop
+NetworkManager, wpa_supplicant, sshd, tailscaled or Pi Connect, never reboot, never touch the firewall without Max
+approving that exact command. If a change might drop the session, ask first. Tailscale and Pi Connect are the only ways in.

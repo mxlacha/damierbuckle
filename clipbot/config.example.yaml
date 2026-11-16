@@ -153,6 +153,12 @@ niche_rules:
   fatigue_ratio: 0.25             # a winner whose last 21 posts fall below 25% of its best stretch rotates out
   dry_strikes: 3                  # topic generator failing this many times in a row = niche ran dry
 
+# Phone/Mac alerts via ntfy (free app: ntfy.sh). Pick a long random topic name; anyone who knows it can read it.
+alerts:
+  ntfy_topic: ""                  # e.g. creampi-7f3k2q9x
+  ntfy_server: https://ntfy.sh
+  daily_summary: true             # a quiet note after every nightly run; failures always alert loudly
+
 # Read-only stats (no uploading) so the niche switcher can see performance.
 analytics:
   api_key: ""                     # Google Cloud API key with YouTube Data API v3 enabled

@@ -62,11 +62,18 @@ def _used_topics(state, niche: dict) -> list[str]:
     return [t for (t,) in state.q("SELECT topic FROM videos WHERE niche=? ORDER BY rowid", niche["name"])]
 
 
+class SourcesDown(RuntimeError):
+    """Lookups failed (network, Wikipedia, Claude/Ollama down). Not evidence the niche ran dry."""
+
+
 def _candidates(cfg: dict, state, niche: dict) -> list[str]:
     used = _used_topics(state, niche)
     seeds = [s for s in niche.get("seeds", []) if s not in used]
     random.shuffle(seeds)
-    return seeds + writer.ideas(cfg, niche, used)
+    ideas = writer.ideas(cfg, niche, used)
+    if ideas is None and not seeds:
+        raise SourcesDown("no seeds left and the idea model is unreachable")
+    return seeds + (ideas or [])
 
 
 def _story_material(cfg: dict, state, niche: dict) -> dict | None:
@@ -76,6 +83,7 @@ def _story_material(cfg: dict, state, niche: dict) -> dict | None:
             if item["key"] not in used_keys:
                 return {"topic": item["title"], **item}
         return None
+    looked, errors = 0, 0
     for topic in _candidates(cfg, state, niche):
         if not cfg["stories"].get("wikipedia_grounding", True):
             key = "topic:" + topic.lower()
@@ -84,17 +92,24 @@ def _story_material(cfg: dict, state, niche: dict) -> dict | None:
             continue
         try:
             article = research.wikipedia(topic)
+            looked += 1
         except Exception as exc:
+            errors += 1
             log.warning("wikipedia lookup failed for %r: %s", topic, exc)
             continue
         if article and article["key"] not in used_keys:
             return {**article, "topic": topic, "text": f"{article['title']}\n\n{article['text']}"}
+    if errors and not looked:
+        raise SourcesDown(f"all {errors} Wikipedia lookups failed")
     return None
 
 
 def _premise(cfg: dict, state, niche: dict) -> dict | None:
     used = _used_topics(state, niche)
-    for premise in writer.ideas(cfg, niche, used):
+    premises = writer.ideas(cfg, niche, used)
+    if premises is None:
+        raise SourcesDown("the idea model is unreachable")
+    for premise in premises:
         if all(difflib.SequenceMatcher(None, premise.lower(), u.lower()).ratio() < 0.6 for u in used):
             return {"topic": premise, "key": "premise:" + hashlib.sha1(premise.encode()).hexdigest()[:12],
                     "text": premise, "url": ""}
@@ -118,9 +133,12 @@ def _fact_material(cfg: dict, state, niche: dict) -> dict | None:
                 return {"topic": clip.stem.replace("_", " "), "key": key, "text": facts.read_text()[:3000],
                         "url": "", "asset": broll.Asset(clip, "video")}
     if "nasa" in sources:
+        looked, errors = 0, 0
         for query in _candidates(cfg, state, niche):
             try:
-                for item in research.nasa_videos(query, 15):
+                results = research.nasa_videos(query, 15)
+                looked += 1
+                for item in results:
                     if item["key"] in used_keys:
                         continue
                     url = research.nasa_clip_url(item["assets"])
@@ -128,7 +146,10 @@ def _fact_material(cfg: dict, state, niche: dict) -> dict | None:
                         path = broll._download(url, cache, ".mp4")
                         return {**item, "topic": query, "asset": broll.Asset(path, "video", "Footage: NASA")}
             except Exception as exc:
+                errors += 1
                 log.warning("nasa lookup failed for %r: %s", query, exc)
+        if errors and not looked:
+            raise SourcesDown(f"all {errors} NASA lookups failed")
     return None
 
 
@@ -167,7 +188,10 @@ def _post_material(cfg: dict, state, niche: dict) -> dict | None:
     if "bluesky" not in niche.get("posts", ["bluesky"]):
         return None
     used_keys = _used_keys(state)
-    for post in research.bluesky_posts(niche.get("bluesky_feeds"), int(niche.get("min_likes", 500)))[:6]:
+    posts = research.bluesky_posts(niche.get("bluesky_feeds"), int(niche.get("min_likes", 500)))
+    if posts is None:
+        raise SourcesDown("Bluesky is unreachable")
+    for post in posts[:6]:
         if post["key"] not in used_keys and writer.post_ok(cfg, niche, post["text"]):
             return {**post, "topic": post["text"][:80]}
     return None
@@ -353,11 +377,15 @@ def fill_channel(cfg: dict, subs: int | None = None) -> int:
             if item:
                 folder = produce(cfg, state, niche, "tweet", slot, item, tag)
         if folder is None:
-            item = MATERIAL[niche["format"]](cfg, state, niche)
+            try:
+                item = MATERIAL[niche["format"]](cfg, state, niche)
+            except SourcesDown as exc:  # an outage, not a dry niche: no strike
+                log.warning("%s sources unavailable (%s); skipping this slot", tag, exc)
+                item = False
             if item:
                 fmt = "tweet" if niche["format"] == "post" else niche["format"]
                 folder = produce(cfg, state, niche, fmt, slot, item, tag)
-            else:
+            elif item is None:  # lookups worked and every result was already used
                 niches.strike(cfg, state, niche, subs)
         if folder:
             made, failures = made + 1, 0

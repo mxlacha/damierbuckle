@@ -51,7 +51,7 @@ done
 [ -f "$DIR/config.yaml" ] || sed "s#model: llama3.2:3b#model: $MODEL#" "$DIR/config.example.yaml" > "$DIR/config.yaml"
 
 echo "==> systemd timers"
-for unit in clipbot-stories.service clipbot-stories.timer clipbot-make.service clipbot-make.timer \
+for unit in clipbot-alert@.service clipbot-stories.service clipbot-stories.timer clipbot-make.service clipbot-make.timer \
             clipbot-upload.service clipbot-upload.timer; do
   sed -e "s#@USER@#$USER_NAME#g" -e "s#@DIR@#$DIR#g" "$DIR/systemd/$unit" | sudo tee "/etc/systemd/system/$unit" >/dev/null
 done

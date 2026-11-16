@@ -9,7 +9,7 @@ import sys
 
 import requests
 
-from . import analytics, channels, config, niches, pipeline, stories, tunnel, uploader
+from . import analytics, channels, config, health, niches, pipeline, stories, tunnel, uploader
 from .state import State
 
 
@@ -80,7 +80,8 @@ def review(cfg: dict, only: str | None = None) -> dict:
 def main() -> int:
     parser = argparse.ArgumentParser(prog="clipbot")
     parser.add_argument("command", choices=["stories", "stats", "uploaded", "backgrounds", "auth-analytics",
-                                            "make", "upload", "auth", "status", "check"])
+                                            "health", "alert", "reset-niches", "make", "upload", "auth", "status",
+                                            "check"])
     parser.add_argument("arg", nargs="?", help="uploaded: last scheduled date (YYYY-MM-DD); auth-analytics: channel id")
     parser.add_argument("--channel", help="limit stats/uploaded to one channel id")
     parser.add_argument("-c", "--config", help="path to config.yaml")
@@ -94,6 +95,21 @@ def main() -> int:
     if args.command == "stories":
         made = stories.fill(cfg, review(cfg))
         print(f"{made} new video(s); upload lists: {cfg['paths']['ready']}/<channel>/UPLOAD_SHEET.csv")
+        health.daily_summary(cfg, made)
+    elif args.command == "health":
+        lines, problems = health.collect(cfg)
+        print("\n".join(lines))
+        print("\nall good" if not problems else "\nNEEDS ATTENTION:\n- " + "\n- ".join(problems))
+        return 1 if problems else 0
+    elif args.command == "alert":  # called by systemd OnFailure=clipbot-alert@<unit>.service
+        health.failure_alert(cfg, args.arg or "clipbot-stories.service")
+    elif args.command == "reset-niches":
+        state = State(cfg["paths"]["work"])
+        for view in channels.views(cfg):
+            if args.channel and view["_channel"] != args.channel:
+                continue
+            for name in niches.reset(view, state, args.arg or "all"):
+                print("re-enabled", name)
     elif args.command == "stats":
         review(cfg, args.channel)
     elif args.command == "uploaded":

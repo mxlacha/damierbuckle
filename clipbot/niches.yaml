@@ -55,6 +55,38 @@ niches:
     broll: [local, commons]
     hashtags: ["#sports", "#nba"]
 
+  - name: science_explained
+    format: explainer
+    title: "Science explained"
+    angle: "everyday things with surprising physics, chemistry and biology behind them"
+    tone: "curious, fast, 'wait, what?'"
+    seeds: ["Mpemba effect", "Leidenfrost effect", "Tardigrade", "Fluorescence", "Supercooling",
+            "Bioluminescence", "Doppler effect", "Placebo"]
+    voices: [am_puck, af_bella, am_echo]
+    broll: [local, commons, pixabay]
+    hashtags: ["#science", "#didyouknow"]
+
+  - name: history_explained
+    format: explainer
+    title: "History in 45 seconds"
+    angle: "bizarre true moments from history that sound made up"
+    tone: "storyteller with a smirk"
+    seeds: ["Great Emu War", "Dancing plague of 1518", "Great Molasses Flood", "Defenestrations of Prague",
+            "Pig War", "Year Without a Summer", "Tulip mania"]
+    voices: [am_echo, bm_george, am_puck]
+    broll: [local, commons]
+    hashtags: ["#history", "#didyouknow"]
+
+  - name: animals_explained
+    format: explainer
+    title: "Animal facts"
+    angle: "animals with abilities that sound like superpowers"
+    tone: "amazed, playful"
+    seeds: ["Mantis shrimp", "Axolotl", "Octopus", "Immortal jellyfish", "Pistol shrimp", "Lyrebird", "Pangolin"]
+    voices: [af_bella, am_puck, af_heart]
+    broll: [local, commons, pixabay]
+    hashtags: ["#animals", "#nature"]
+
   # ---------------------------------------------------------------- post commentary
   - name: post_takes
     format: post

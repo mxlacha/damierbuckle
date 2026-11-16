@@ -8,13 +8,15 @@ DIR="$(cd "$(dirname "$0")" && pwd)"
 cd "$DIR" || exit 0
 case "${1:-}" in
   pull)
-    git pull --ff-only --quiet || echo "sync: pull failed (local edits or no network); using current config"
+    # --rebase keeps CreamPi's own report commits on top of whatever GitHub has (no more diverged branches)
+    git pull --rebase --autostash --quiet || { git rebase --abort 2>/dev/null; echo "sync: pull failed; using current config"; }
     ;;
   push)
     git add reports/ 2>/dev/null
     if ! git diff --cached --quiet; then
       git -c user.name="clipbot" -c user.email="clipbot@localhost" commit --quiet -m "clipbot: stats report $(date +%F)"
-      git push --quiet || echo "sync: push failed (check the deploy key)"
+      git pull --rebase --autostash --quiet || git rebase --abort 2>/dev/null
+      git push --quiet || echo "sync: push failed (check the deploy key / network)"
     fi
     ;;
   *) echo "usage: sync.sh pull|push" ;;

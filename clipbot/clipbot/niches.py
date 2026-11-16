@@ -58,7 +58,23 @@ def rotate(cfg: dict, state, subs: int | None, reason: str) -> dict:
         if name in niches:
             _start(state, name, subs, f"{reason}; revisiting best previous niche")
             return niches[name]
-    raise SystemExit(f"channel {cfg.get('_channel')}: every niche has run dry — add more in channels.yaml")
+    # everything is dry: don't crash every night. Re-open the least-recently-dried niche and say so loudly.
+    dry = [n for (n,) in state.q("SELECT name FROM niches WHERE status='dry' AND name LIKE ? ORDER BY started",
+                                  _mine(cfg)) if n in niches]
+    if not dry:
+        raise SystemExit(f"channel {cfg.get('_channel')}: no usable niches — add more in channels.yaml")
+    log.warning("[%s] every niche is marked dry; re-opening %s (add niches in channels.yaml)", cfg.get("_channel"), dry[0])
+    _start(state, dry[0], subs, f"{reason}; all niches dry, retrying")
+    return niches[dry[0]]
+
+
+def reset(cfg: dict, state, which: str = "all") -> list[str]:
+    """Clear 'dry'/'retired' flags (e.g. after an outage caused false strikes). which = niche name or 'all'."""
+    names = [n for (n,) in state.q("SELECT name FROM niches WHERE name LIKE ? AND status IN ('dry', 'retired')",
+                                    _mine(cfg)) if which in ("all", n, n.split("/", 1)[-1])]
+    for name in names:
+        state.x("UPDATE niches SET status='retired', strikes=0 WHERE name=?", name)
+    return names
 
 
 def strike(cfg: dict, state, niche: dict, subs: int | None = None) -> dict:
