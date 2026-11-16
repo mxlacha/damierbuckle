@@ -12,9 +12,10 @@ Repo: `~/damierbuckle/clipbot` (branch `claude/ollama-clip-bot-rpi-yle8t6`). Dat
 Runs as the `clipbot-stories` systemd service, fired by `clipbot-stories.timer` at 01:30. Logs: `journalctl -u clipbot-stories`.
 
 Known state and pitfalls:
-- **Power:** CreamPi is on a MacBook USB-C charger (~15W at 5V) until the official 27W supply arrives. Full load reboots it.
-  Keep `max_threads: 2` at the top of `config.yaml`, `arm_freq=1800` in `/boot/firmware/config.txt`, and
-  `AllowedCPUs=0-1` drop-ins for `clipbot-stories` and `ollama`. Check `vcgencmd get_throttled` after any heavy step.
+- **Power:** the official 27W supply is installed (Nov 2026), so CreamPi runs at full speed. The earlier
+  MacBook-charger workarounds must be removed: no `max_threads` line in `config.yaml` (default 4), no `arm_freq=1800`
+  line in `/boot/firmware/config.txt`, and no `limit.conf` drop-ins under `/etc/systemd/system/{clipbot-stories,ollama}.service.d/`.
+  `vcgencmd get_throttled` should stay `0x0` during a run; anything else means power/heat trouble, so stop and tell Max.
 - **config.yaml is not in git** (keys live there). Validate after every edit:
   `.venv/bin/python -c "import yaml; yaml.safe_load(open('config.yaml')); print('config OK')"`.
   It was once corrupted by shell commands typed into nano; check `head -5 config.yaml` starts with the comment header.
@@ -27,8 +28,9 @@ Known state and pitfalls:
 1. Network: connected to the internet (`ping -c2 github.com`). If on a captive-portal network (library, cafe), Max must
    accept it in the Pi's browser first. Long term CreamPi should live on home Ethernet/Wi-Fi.
 2. `cd ~/damierbuckle/clipbot && git pull`, then `.venv/bin/pip install -r requirements.txt`.
-3. config.yaml: valid YAML; `max_threads: 2`; `llm` block as above; `schedule.timezone` set; `buffer_days: 1` for testing.
-4. Power limits present (see above); create the systemd drop-ins if missing, `daemon-reload`, restart ollama.
+3. config.yaml: valid YAML; no `max_threads` line; `llm` block as above; `schedule.timezone` set; `buffer_days: 1` for testing.
+4. Remove the old power workarounds (see above): delete the drop-ins, `daemon-reload`, restart ollama; remove the
+   `arm_freq=1800` line and reboot (ask Max first). Confirm `vcgencmd get_config arm_freq` shows the default.
 5. `.venv/bin/python -m clipbot check`: everything ✓ except optional `!` items.
 6. Corridor backgrounds exist: `ls ~/clipbot/backgrounds/generated/` (else `.venv/bin/python -m clipbot backgrounds`).
 7. Test run: `sudo systemctl start --no-block clipbot-stories`, follow the log, and report each `(+Ns)` step time.
