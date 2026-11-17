@@ -1,7 +1,7 @@
 {
  "channel": "brainfacts",
- "generated": "2026-11-16 02:36",
- "decision": "no active niche yet",
+ "generated": "2026-11-17 01:30",
+ "decision": "brainfacts/science_explained: trial, no settled videos yet",
  "niches": [
   {
    "niche": "brainfacts/tech_explained",
@@ -18,6 +18,12 @@
   {
    "niche": "brainfacts/sports_explained",
    "status": "retired",
+   "strikes": 0,
+   "best_median": 0.0
+  },
+  {
+   "niche": "brainfacts/science_explained",
+   "status": "trial",
    "strikes": 0,
    "best_median": 0.0
   }

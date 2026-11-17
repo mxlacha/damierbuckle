@@ -1,12 +1,13 @@
-# brainfacts — 2026-11-16 02:36
+# brainfacts — 2026-11-17 01:30
 
-**Niche decision:** no active niche yet
+**Niche decision:** brainfacts/science_explained: trial, no settled videos yet
 
 | niche | status | strikes | best median |
 |---|---|---|---|
 | tech_explained | retired | 0 | 0 |
 | movie_aura | retired | 0 | 0 |
 | sports_explained | retired | 0 | 0 |
+| science_explained | trial | 0 | 0 |
 
 ## Correlations (Spearman, -1..1; blank = fewer than 8 videos)
 
