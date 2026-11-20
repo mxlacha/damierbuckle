@@ -1,8 +1,15 @@
 {
  "channel": "cosmosclips",
- "generated": "2026-11-19 23:45",
- "decision": "no active niche yet",
- "niches": [],
+ "generated": "2026-11-20 07:38",
+ "decision": "cosmosclips/cosmos_explained: trial, no settled videos yet",
+ "niches": [
+  {
+   "niche": "cosmosclips/cosmos_explained",
+   "status": "trial",
+   "strikes": 0,
+   "best_median": 0.0
+  }
+ ],
  "by": {},
  "correlations": {
   "duration": {
