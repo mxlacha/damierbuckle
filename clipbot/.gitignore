@@ -1,0 +1,5 @@
+config.yaml
+client_secret*.json
+token.json
+.venv/
+__pycache__/

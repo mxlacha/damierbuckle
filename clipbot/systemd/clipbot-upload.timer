@@ -1,0 +1,9 @@
+[Unit]
+Description=Run clipbot upload every morning
+
+[Timer]
+OnCalendar=*-*-* 07:15:00
+Persistent=true
+
+[Install]
+WantedBy=timers.target
